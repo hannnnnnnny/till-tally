@@ -1,0 +1,9 @@
+node_modules
+dist
+build
+coverage
+package-lock.json
+
+# Authored prose / design docs (hand-formatted tables, not auto-formatted)
+docs
+README.md
