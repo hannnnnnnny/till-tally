@@ -1,0 +1,33 @@
+# Local development services for TillTally.
+#
+#   Start (detached):  docker compose up -d
+#   Status / health:   docker compose ps
+#   Logs:              docker compose logs -f db
+#   Stop:              docker compose down          (keeps data)
+#   Reset:             docker compose down -v        (also removes the data volume)
+#
+# Credentials default to dev-only values and match server/.env.example:
+#   DATABASE_URL="postgresql://tilltally:tilltally@localhost:5432/tilltally?schema=public"
+# Override any value via a root .env file or shell environment variables.
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: tilltally-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-tilltally}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tilltally}
+      POSTGRES_DB: ${POSTGRES_DB:-tilltally}
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - tilltally-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-tilltally} -d ${POSTGRES_DB:-tilltally}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  tilltally-db-data:

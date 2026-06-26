@@ -51,7 +51,7 @@ till-tally/
 ### Prerequisites
 
 - **Node.js 20+** and **npm 10+**
-- **PostgreSQL** (a Docker Compose setup is provided in a later task)
+- **Docker** + **Docker Compose** (to run PostgreSQL locally)
 
 ### 1. Install
 
@@ -76,7 +76,21 @@ Generate strong JWT secrets, for example:
 openssl rand -hex 32
 ```
 
-### 3. Run in development
+### 3. Start the database
+
+A PostgreSQL instance is provided via Docker Compose:
+
+```bash
+docker compose up -d        # starts PostgreSQL on localhost:5432
+docker compose ps           # check it is healthy
+```
+
+It uses dev-only defaults (`tilltally` / `tilltally` / `tilltally`) that match the
+`DATABASE_URL` in `server/.env.example`. Data persists in a named volume; run
+`docker compose down -v` to reset it. Override credentials with `POSTGRES_USER`,
+`POSTGRES_PASSWORD`, `POSTGRES_DB` or `POSTGRES_PORT` (e.g. in a root `.env`).
+
+### 4. Run in development
 
 ```bash
 npm run dev:server     # API on http://localhost:4000
