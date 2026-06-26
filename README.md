@@ -78,10 +78,11 @@ openssl rand -hex 32
 
 ### 3. Start the database
 
-A PostgreSQL instance is provided via Docker Compose:
+A PostgreSQL instance is provided via Docker Compose. For local development you
+typically run **only the database** in Docker and the apps with `npm`:
 
 ```bash
-docker compose up -d        # starts PostgreSQL on localhost:5432
+docker compose up -d db     # starts PostgreSQL on localhost:5432
 docker compose ps           # check it is healthy
 ```
 
@@ -98,6 +99,21 @@ npm run dev:client     # App on http://localhost:5173 (proxies /api -> 4000)
 ```
 
 Health check: <http://localhost:4000/api/health>
+
+### Run the whole stack in Docker
+
+Alternatively, build and run all three services (database, API, client) in
+containers:
+
+```bash
+docker compose up -d --build
+```
+
+| Service | URL |
+| --- | --- |
+| Client (nginx) | <http://localhost:8080> |
+| API | <http://localhost:4000/api/health> |
+| Database | `localhost:5432` |
 
 ---
 

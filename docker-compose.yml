@@ -1,14 +1,19 @@
-# Local development services for TillTally.
+# TillTally services.
 #
-#   Start (detached):  docker compose up -d
-#   Status / health:   docker compose ps
-#   Logs:              docker compose logs -f db
-#   Stop:              docker compose down          (keeps data)
-#   Reset:             docker compose down -v        (also removes the data volume)
+#   Database only (for local dev):  docker compose up -d db
+#   Full stack (build + run):        docker compose up -d --build
+#   Status / health:                 docker compose ps
+#   Logs:                            docker compose logs -f
+#   Stop:                            docker compose down          (keeps data)
+#   Reset:                           docker compose down -v        (also removes the data volume)
 #
-# Credentials default to dev-only values and match server/.env.example:
-#   DATABASE_URL="postgresql://tilltally:tilltally@localhost:5432/tilltally?schema=public"
-# Override any value via a root .env file or shell environment variables.
+# Services:
+#   db      PostgreSQL 16        -> localhost:5432
+#   server  Express API          -> localhost:4000  (GET /api/health)
+#   client  React build (nginx)  -> localhost:8080
+#
+# Credentials default to dev-only values and match server/.env.example.
+# Override via a root .env file or shell environment variables.
 
 services:
   db:
@@ -28,6 +33,34 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    container_name: tilltally-server
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-tilltally}:${POSTGRES_PASSWORD:-tilltally}@db:5432/${POSTGRES_DB:-tilltally}?schema=public
+      CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost:8080}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - '4000:4000'
+
+  client:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    container_name: tilltally-client
+    restart: unless-stopped
+    depends_on:
+      - server
+    ports:
+      - '8080:80'
 
 volumes:
   tilltally-db-data:
