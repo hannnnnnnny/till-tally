@@ -1,6 +1,7 @@
 import { type Response, Router } from 'express';
 import { TokenExpiredError } from 'jsonwebtoken';
 import { prisma } from '../db/prisma';
+import { requireAuth } from './middleware';
 import { hashPassword, verifyPassword } from './password';
 import {
   clearRefreshTokenCookie,
@@ -125,6 +126,31 @@ authRouter.post('/login', async (req, res) => {
     id: user.id,
     name: user.name,
     email: user.email,
+  });
+});
+
+authRouter.get('/me', requireAuth, async (req, res) => {
+  if (!req.userId) {
+    return sendAuthError(res, 'UNAUTHENTICATED', 'Missing authenticated user');
+  }
+
+  const user = await prisma.user.findUnique({
+    where: {
+      id: req.userId,
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+    },
+  });
+
+  if (!user) {
+    return sendAuthError(res, 'UNAUTHENTICATED', 'Authenticated user not found');
+  }
+
+  return res.json({
+    user,
   });
 });
 
