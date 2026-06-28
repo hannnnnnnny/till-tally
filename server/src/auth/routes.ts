@@ -1,10 +1,13 @@
 import { Router } from 'express';
-import { Prisma } from '@prisma/client';
 import { prisma } from '../db/prisma';
 import { hashPassword } from './password';
 import { signAccessToken } from './tokens';
 
 export const authRouter = Router();
+
+function isUniqueConstraintError(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002';
+}
 
 authRouter.post('/register', async (req, res) => {
   const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
@@ -47,7 +50,7 @@ authRouter.post('/register', async (req, res) => {
       expiresIn: 900,
     });
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+    if (isUniqueConstraintError(error)) {
       return res.status(409).json({ error: 'Email is already taken' });
     }
 
