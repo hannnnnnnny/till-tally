@@ -1,10 +1,12 @@
 import express, { type Request, type Response } from 'express';
 import 'dotenv/config';
+import { authRouter } from './auth/routes';
 
 const app = express();
 const port = Number(process.env.PORT ?? 4000);
 
 app.use(express.json());
+app.use('/api/auth', authRouter);
 
 /** Health check — confirms the API is up. */
 app.get('/api/health', (_req: Request, res: Response) => {
