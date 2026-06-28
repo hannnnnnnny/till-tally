@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 915 337" role="img" aria-labelledby="title desc">
+  <title id="title">TillTally logo</title>
+  <desc id="desc">A bold Tilltally wordmark in a Darker Grotesque style with a blue period.</desc>
+  <defs>
+    <filter id="blueGlow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="7" result="blur" />
+      <feColorMatrix
+        in="blur"
+        type="matrix"
+        values="0 0 0 0 0.07 0 0 0 0 0.40 0 0 0 0 1 0 0 0 0.75 0"
+        result="glow"
+      />
+      <feMerge>
+        <feMergeNode in="glow" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+  <style>
+    @font-face {
+      font-family: "Darker Grotesque";
+      font-style: normal;
+      font-weight: 900;
+      src: url("https://fonts.gstatic.com/s/darkergrotesque/v10/U9MK6cuh-mLQlC4BKCtayOfARkSVgb381b-W8-QDqXyerX7y.ttf") format("truetype");
+    }
+
+    .wordmark {
+      font-family: "Darker Grotesque", "Arial Black", "Helvetica Neue", Arial, Inter, ui-sans-serif, system-ui, sans-serif;
+      font-size: 150px;
+      font-weight: 900;
+      letter-spacing: -5px;
+    }
+  </style>
+
+  <text x="224" y="235" fill="#050505" class="wordmark">Tilltally</text>
+  <circle cx="835" cy="228" r="18" fill="#1267ff" opacity="0.3" filter="url(#blueGlow)">
+    <animate attributeName="r" values="14;24;14" dur="2.8s" repeatCount="indefinite" />
+    <animate attributeName="opacity" values="0.14;0.4;0.14" dur="2.8s" repeatCount="indefinite" />
+  </circle>
+  <circle cx="835" cy="228" r="10.5" fill="#1267ff" />
+</svg>
