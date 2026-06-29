@@ -6,6 +6,21 @@ import { prisma } from '../db/prisma';
 export const businessesRouter = Router();
 
 type BusinessField = 'name' | 'industry' | 'city';
+type BusinessErrorCode = 'UNAUTHENTICATED' | 'NO_BUSINESS_ACCESS' | 'NOT_FOUND';
+
+function sendBusinessError(
+  res: Response,
+  statusCode: number,
+  code: BusinessErrorCode,
+  message: string,
+): Response {
+  return res.status(statusCode).json({
+    error: {
+      code,
+      message,
+    },
+  });
+}
 
 function sendValidationError(res: Response, field: BusinessField, message: string): Response {
   return res.status(400).json({
@@ -24,12 +39,7 @@ function sendValidationError(res: Response, field: BusinessField, message: strin
 
 businessesRouter.post('/', requireAuth, async (req, res) => {
   if (!req.userId) {
-    return res.status(401).json({
-      error: {
-        code: 'UNAUTHENTICATED',
-        message: 'Missing authenticated user',
-      },
-    });
+    return sendBusinessError(res, 401, 'UNAUTHENTICATED', 'Missing authenticated user');
   }
 
   const userId = req.userId;
@@ -93,5 +103,94 @@ businessesRouter.post('/', requireAuth, async (req, res) => {
   return res.status(201).json({
     ...business,
     role: Role.OWNER,
+  });
+});
+
+businessesRouter.get('/', requireAuth, async (req, res) => {
+  if (!req.userId) {
+    return sendBusinessError(res, 401, 'UNAUTHENTICATED', 'Missing authenticated user');
+  }
+
+  const userId = req.userId;
+
+  const memberships = await prisma.businessMember.findMany({
+    where: {
+      userId,
+    },
+    orderBy: {
+      createdAt: 'asc',
+    },
+    select: {
+      role: true,
+      business: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+  });
+
+  return res.json({
+    data: memberships.map((membership) => ({
+      ...membership.business,
+      role: membership.role,
+    })),
+  });
+});
+
+businessesRouter.get('/:id', requireAuth, async (req, res) => {
+  if (!req.userId) {
+    return sendBusinessError(res, 401, 'UNAUTHENTICATED', 'Missing authenticated user');
+  }
+
+  const userId = req.userId;
+  const businessId = req.params.id;
+
+  if (!businessId) {
+    return sendBusinessError(res, 404, 'NOT_FOUND', 'Business not found');
+  }
+
+  const business = await prisma.business.findUnique({
+    where: {
+      id: businessId,
+    },
+    select: {
+      id: true,
+      name: true,
+      industry: true,
+      city: true,
+      createdAt: true,
+    },
+  });
+
+  if (!business) {
+    return sendBusinessError(res, 404, 'NOT_FOUND', 'Business not found');
+  }
+
+  const membership = await prisma.businessMember.findUnique({
+    where: {
+      businessId_userId: {
+        businessId,
+        userId,
+      },
+    },
+    select: {
+      role: true,
+    },
+  });
+
+  if (!membership) {
+    return sendBusinessError(
+      res,
+      403,
+      'NO_BUSINESS_ACCESS',
+      'You do not have access to this business',
+    );
+  }
+
+  return res.json({
+    ...business,
+    role: membership.role,
   });
 });
