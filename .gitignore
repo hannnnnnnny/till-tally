@@ -9,6 +9,9 @@ build/
 *.log
 npm-debug.log*
 
+# Runtime uploads
+uploads/
+
 # Environment
 .env
 .env.local
