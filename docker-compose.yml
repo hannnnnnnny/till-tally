@@ -44,10 +44,16 @@ services:
       NODE_ENV: production
       PORT: 4000
       DATABASE_URL: postgresql://${POSTGRES_USER:-tilltally}:${POSTGRES_PASSWORD:-tilltally}@db:5432/${POSTGRES_DB:-tilltally}?schema=public
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-access-secret-change-me}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-refresh-secret-change-me}
+      JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-15m}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
       CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost:8080}
     depends_on:
       db:
         condition: service_healthy
+    ports:
+      - '${SERVER_PORT:-4000}:4000'
 
   client:
     build:
