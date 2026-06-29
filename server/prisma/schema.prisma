@@ -14,6 +14,29 @@ enum Role {
   VIEWER
 }
 
+enum SalesChannel {
+  SHOPIFY
+  TRADE_ME
+  IN_STORE
+  SOCIAL
+  MANUAL
+  OTHER
+}
+
+enum ImportType {
+  ORDERS
+  PRODUCTS
+  INVENTORY
+}
+
+enum ImportStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  COMPLETED_WITH_WARNINGS
+  FAILED
+}
+
 model User {
   id              String           @id @default(uuid())
   name            String
@@ -28,15 +51,18 @@ model User {
 }
 
 model Business {
-  id        String           @id @default(uuid())
-  ownerId   String           @map("owner_id")
-  owner     User             @relation("BusinessOwner", fields: [ownerId], references: [id])
-  name      String
-  industry  String?
-  city      String?
-  members   BusinessMember[]
-  createdAt DateTime         @default(now()) @map("created_at")
-  updatedAt DateTime         @updatedAt @map("updated_at")
+  id         String           @id @default(uuid())
+  ownerId    String           @map("owner_id")
+  owner      User             @relation("BusinessOwner", fields: [ownerId], references: [id])
+  name       String
+  industry   String?
+  city       String?
+  members    BusinessMember[]
+  products   Product[]
+  orders     Order[]
+  importJobs ImportJob[]
+  createdAt  DateTime         @default(now()) @map("created_at")
+  updatedAt  DateTime         @updatedAt @map("updated_at")
 
   @@index([ownerId])
   @@map("businesses")
@@ -53,4 +79,99 @@ model BusinessMember {
 
   @@unique([businessId, userId])
   @@map("business_members")
+}
+
+model Product {
+  id           String              @id @default(uuid())
+  businessId   String              @map("business_id")
+  business     Business            @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  sku          String
+  name         String
+  category     String?
+  vendor       String?
+  costPrice    Decimal             @map("cost_price") @db.Decimal(12, 2)
+  currentStock Int                 @default(0) @map("current_stock")
+  lastSoldAt   DateTime?           @map("last_sold_at") @db.Date
+  importJobId  String?             @map("import_job_id")
+  importJob    ImportJob?          @relation(fields: [importJobId], references: [id], onDelete: SetNull)
+  orderItems   OrderItem[]
+  snapshots    InventorySnapshot[]
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+
+  @@unique([businessId, sku])
+  @@index([businessId, category])
+  @@index([businessId, lastSoldAt])
+  @@map("products")
+}
+
+model Order {
+  id             String       @id @default(uuid())
+  businessId     String       @map("business_id")
+  business       Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  orderNumber    String       @map("order_number")
+  orderDate      DateTime     @map("order_date") @db.Date
+  channel        SalesChannel @default(OTHER)
+  totalAmount    Decimal      @map("total_amount") @db.Decimal(12, 2)
+  discountAmount Decimal      @default(0) @map("discount_amount") @db.Decimal(12, 2)
+  customerRegion String?      @map("customer_region")
+  importJobId    String?      @map("import_job_id")
+  importJob      ImportJob?   @relation(fields: [importJobId], references: [id], onDelete: SetNull)
+  items          OrderItem[]
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  @@unique([businessId, orderNumber])
+  @@index([businessId, orderDate])
+  @@index([businessId, channel])
+  @@map("orders")
+}
+
+model OrderItem {
+  id         String   @id @default(uuid())
+  orderId    String   @map("order_id")
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId  String?  @map("product_id")
+  product    Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  sku        String
+  quantity   Int
+  unitPrice  Decimal  @map("unit_price") @db.Decimal(12, 2)
+  totalPrice Decimal  @map("total_price") @db.Decimal(12, 2)
+  costPrice  Decimal  @map("cost_price") @db.Decimal(12, 2)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+model InventorySnapshot {
+  id            String   @id @default(uuid())
+  productId     String   @map("product_id")
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  stockQuantity Int      @map("stock_quantity")
+  snapshotDate  DateTime @map("snapshot_date") @db.Date
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@unique([productId, snapshotDate])
+  @@index([productId, snapshotDate(sort: Desc)])
+  @@map("inventory_snapshots")
+}
+
+model ImportJob {
+  id           String       @id @default(uuid())
+  businessId   String       @map("business_id")
+  business     Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  fileName     String       @map("file_name")
+  importType   ImportType   @map("import_type")
+  status       ImportStatus @default(PENDING)
+  rowsTotal    Int          @default(0) @map("rows_total")
+  rowsImported Int          @default(0) @map("rows_imported")
+  rowsFailed   Int          @default(0) @map("rows_failed")
+  errorSummary Json?        @map("error_summary")
+  products     Product[]
+  orders       Order[]
+  createdAt    DateTime     @default(now()) @map("created_at")
+
+  @@index([businessId, createdAt(sort: Desc)])
+  @@map("import_jobs")
 }
