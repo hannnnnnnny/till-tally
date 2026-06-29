@@ -7,13 +7,50 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Role {
+  OWNER
+  ADMIN
+  ANALYST
+  VIEWER
+}
+
 model User {
-  id           String   @id @default(uuid())
-  name         String
-  email        String   @unique
-  passwordHash String   @map("password_hash")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id              String           @id @default(uuid())
+  name            String
+  email           String           @unique
+  passwordHash    String           @map("password_hash")
+  ownedBusinesses Business[]       @relation("BusinessOwner")
+  memberships     BusinessMember[]
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
 
   @@map("users")
+}
+
+model Business {
+  id        String           @id @default(uuid())
+  ownerId   String           @map("owner_id")
+  owner     User             @relation("BusinessOwner", fields: [ownerId], references: [id])
+  name      String
+  industry  String?
+  city      String?
+  members   BusinessMember[]
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+
+  @@index([ownerId])
+  @@map("businesses")
+}
+
+model BusinessMember {
+  id         String   @id @default(uuid())
+  businessId String   @map("business_id")
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  userId     String   @map("user_id")
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role     @default(OWNER)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@unique([businessId, userId])
+  @@map("business_members")
 }
