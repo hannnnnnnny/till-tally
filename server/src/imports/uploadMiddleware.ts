@@ -28,7 +28,7 @@ type CsvUploadErrorCode = 'BAD_CSV_FORMAT' | 'FILE_TOO_LARGE' | 'UNSUPPORTED_MED
 
 const CSV_UPLOAD_FIELD_NAME = 'file';
 const CSV_MIME_TYPE = 'text/csv';
-const DEFAULT_MAX_UPLOAD_SIZE_MB = 5;
+const DEFAULT_MAX_UPLOAD_SIZE_MB = 25;
 
 class CsvUploadError extends Error {
   constructor(
