@@ -127,7 +127,7 @@ Single business. `403 NO_BUSINESS_ACCESS` if not a member; `404` if not found.
 
 ## 4. CSV Import
 
-Uploads are `multipart/form-data` with a `file` field. Server validates **type** (`text/csv`), **size** (≤ 5 MB default), renames stored file, then parses rows. Each upload creates an `import_job`. See [`TT.md`](../TT.md) §10.3 / §23 and [`DATABASE.md`](./DATABASE.md) §5.8.
+Uploads are `multipart/form-data` with a `file` field. Server validates **type** (`text/csv`), **size** (≤ 25 MB default), renames stored file, then parses rows. Each upload creates an `import_job`. See [`TT.md`](../TT.md) §10.3 / §23 and [`DATABASE.md`](./DATABASE.md) §5.8.
 
 Processing model: parse → validate each row → insert valid rows → record failed rows in `error_summary`. For MVP this can run synchronously and return the finished job; large files may move to async (`status: PROCESSING`, poll the job).
 
@@ -145,6 +145,9 @@ Processing model: parse → validate each row → insert valid rows → record f
   "errors": [
     { "row": 14, "column": "order_date", "message": "Invalid date format" },
     { "row": 51, "column": "order_number", "message": "Duplicate order number" }
+  ],
+  "warnings": [
+    { "row": 88, "column": "sku", "message": "SKU \"ABC-123\" was not matched to a product" }
   ]
 }
 ```
@@ -337,7 +340,7 @@ Aligned with [`TT.md`](../TT.md) §22 and global engineering security rules:
 - **Authentication:** JWT; passwords hashed (bcrypt/argon2); secrets from env vars only — never hardcoded.
 - **Authorisation / data isolation:** every business-scoped query filters by a verified `businessId`; membership checked on each request to prevent IDOR.
 - **Input validation:** validate + sanitise all bodies, query params, and CSV rows (a schema validator such as Zod at the route boundary). Reject unknown fields.
-- **File upload:** enforce content-type `text/csv`, size limit (≤ 5 MB), row-count cap, store with a generated filename (never the user-supplied name), strip path components.
+- **File upload:** enforce content-type `text/csv`, size limit (≤ 25 MB), row-count cap, store with a generated filename (never the user-supplied name), strip path components.
 - **SQL safety:** all DB access via Prisma (parameterised) — no string-concatenated SQL.
 - **Rate limiting:** throttle `auth/*` (e.g. 10/min/IP) and uploads to limit brute force and abuse → `429 RATE_LIMITED`.
 - **Transport & headers:** HTTPS in production; `helmet` security headers; CORS restricted to the known frontend origin.

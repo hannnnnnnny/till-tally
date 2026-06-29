@@ -36,6 +36,7 @@ export type OrderImportItemRow = {
 };
 
 export type OrderImportRow = {
+  sourceRow: number;
   orderNumber: string;
   orderDate: string;
   channel: SalesChannel;
@@ -153,6 +154,7 @@ export function validateOrdersCsv(csvText: string): CsvValidationResult<OrderImp
     }
 
     return {
+      sourceRow: context.record.rowNumber,
       orderNumber,
       orderDate,
       channel,
@@ -279,10 +281,7 @@ function validateRecords<T>(
   };
 }
 
-function requireColumns(
-  headers: Set<string>,
-  requiredColumns: readonly string[],
-): CsvIssue[] {
+function requireColumns(headers: Set<string>, requiredColumns: readonly string[]): CsvIssue[] {
   return requiredColumns
     .filter((column) => !headers.has(column))
     .map((column) => ({
@@ -294,7 +293,9 @@ function requireColumns(
 }
 
 function readOptionalOrderItem(context: RowContext): OrderImportItemRow | null {
-  const hasAnyItemValue = ORDER_ITEM_COLUMNS.some((column) => readCell(context.record, column) !== '');
+  const hasAnyItemValue = ORDER_ITEM_COLUMNS.some(
+    (column) => readCell(context.record, column) !== '',
+  );
 
   if (!hasAnyItemValue) {
     return null;
@@ -320,7 +321,13 @@ function readOptionalOrderItem(context: RowContext): OrderImportItemRow | null {
     }
   }
 
-  if (!sku || quantity === null || unitPrice === null || totalPrice === null || costPrice === null) {
+  if (
+    !sku ||
+    quantity === null ||
+    unitPrice === null ||
+    totalPrice === null ||
+    costPrice === null
+  ) {
     return null;
   }
 
@@ -432,7 +439,12 @@ function readNonNegativeNumber(
   }
 
   if (parsed < 0) {
-    addIssue(context.errors, context.record.rowNumber, column, 'Value must be greater than or equal to 0');
+    addIssue(
+      context.errors,
+      context.record.rowNumber,
+      column,
+      'Value must be greater than or equal to 0',
+    );
     return null;
   }
 
@@ -494,7 +506,10 @@ function mapRowValues(headers: string[], row: string[]): Map<string, string> {
 }
 
 function normalizeHeader(header: string): string {
-  return header.trim().toLowerCase().replace(/[\s-]+/g, '_');
+  return header
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
 }
 
 function normalizeChannel(channel: string): string {
