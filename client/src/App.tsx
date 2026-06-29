@@ -1,14 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { ProtectedRoute } from './auth/ProtectedRoute';
 import { useAuth } from './auth/AuthContext';
 import { type AuthFormValues, type AuthMode } from './auth/types';
-import { createBusiness, fetchBusinesses } from './businesses/api';
-import {
-  type Business,
-  type BusinessFormValues,
-  type SalesChannel,
-} from './businesses/types';
+import { createBusiness } from './businesses/api';
+import { BusinessProvider, useBusinesses } from './businesses/BusinessContext';
+import { type BusinessFormValues, type SalesChannel } from './businesses/types';
 
 const CHANNEL_OPTIONS: Array<{ value: SalesChannel; label: string }> = [
   { value: 'SHOPIFY', label: 'Shopify' },
@@ -176,13 +173,9 @@ function AuthPage() {
   );
 }
 
-function BusinessSetupForm({
-  accessToken,
-  onCreated,
-}: {
-  accessToken: string;
-  onCreated: (business: Business) => void;
-}) {
+function BusinessSetupForm() {
+  const { accessToken } = useAuth();
+  const { addBusiness } = useBusinesses();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -202,6 +195,11 @@ function BusinessSetupForm({
   });
 
   async function onSubmit(values: BusinessFormValues) {
+    if (!accessToken) {
+      setSubmitError('Missing authenticated session');
+      return;
+    }
+
     setIsSubmitting(true);
     setSubmitError(null);
     setSuccessMessage(null);
@@ -213,7 +211,7 @@ function BusinessSetupForm({
         city: values.city.trim() || null,
       });
 
-      onCreated(business);
+      addBusiness(business);
       setSuccessMessage(`${business.name} is ready`);
       reset({
         name: '',
@@ -323,8 +321,7 @@ function BusinessSetupForm({
                   value={channel.value}
                   className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900"
                   {...register('channels', {
-                    validate: (value) =>
-                      value.length > 0 || 'Select at least one sales channel',
+                    validate: (value) => value.length > 0 || 'Select at least one sales channel',
                   })}
                 />
                 {channel.label}
@@ -348,52 +345,47 @@ function BusinessSetupForm({
   );
 }
 
+function BusinessSelector() {
+  const { activeBusinessId, businesses, setActiveBusinessId, status } = useBusinesses();
+
+  if (businesses.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="min-w-0 sm:w-64">
+      <label htmlFor="active-business" className="block text-sm font-medium text-slate-700">
+        Active business
+      </label>
+      <select
+        id="active-business"
+        value={activeBusinessId ?? ''}
+        onChange={(event) => setActiveBusinessId(event.target.value)}
+        disabled={status === 'loading'}
+        className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 disabled:cursor-not-allowed disabled:bg-slate-100"
+      >
+        {businesses.map((business) => (
+          <option key={business.id} value={business.id}>
+            {business.name}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 function DashboardShell() {
   const { accessToken, user, signOut } = useAuth();
+  const {
+    activeBusiness,
+    activeBusinessId,
+    businesses,
+    error: businessError,
+    setActiveBusinessId,
+    status: businessStatus,
+  } = useBusinesses();
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const [businesses, setBusinesses] = useState<Business[]>([]);
-  const [isLoadingBusinesses, setIsLoadingBusinesses] = useState(true);
-  const [businessError, setBusinessError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!accessToken) {
-      return;
-    }
-
-    const token = accessToken;
-    let isActive = true;
-
-    async function loadBusinesses() {
-      setIsLoadingBusinesses(true);
-      setBusinessError(null);
-
-      try {
-        const nextBusinesses = await fetchBusinesses(token);
-
-        if (!isActive) {
-          return;
-        }
-
-        setBusinesses(nextBusinesses);
-      } catch (error) {
-        if (!isActive) {
-          return;
-        }
-
-        setBusinessError(error instanceof Error ? error.message : 'Something went wrong');
-      } finally {
-        if (isActive) {
-          setIsLoadingBusinesses(false);
-        }
-      }
-    }
-
-    void loadBusinesses();
-
-    return () => {
-      isActive = false;
-    };
-  }, [accessToken]);
+  const isLoadingBusinesses = businessStatus === 'loading';
 
   async function handleSignOut() {
     setIsSigningOut(true);
@@ -405,34 +397,49 @@ function DashboardShell() {
     }
   }
 
-  function handleBusinessCreated(business: Business) {
-    setBusinesses((currentBusinesses) => [business, ...currentBusinesses]);
-  }
-
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8">
       <section className="mx-auto w-full max-w-6xl">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-sm font-medium text-slate-500">Signed in as</p>
             <h1 className="mt-1 text-2xl font-bold text-slate-900">{user?.name}</h1>
             <p className="mt-1 text-sm text-slate-600">{user?.email}</p>
           </div>
 
-          <button
-            type="button"
-            onClick={handleSignOut}
-            disabled={isSigningOut}
-            className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
-          >
-            {isSigningOut ? 'Signing out...' : 'Sign out'}
-          </button>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <BusinessSelector />
+            <button
+              type="button"
+              onClick={handleSignOut}
+              disabled={isSigningOut}
+              className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+            >
+              {isSigningOut ? 'Signing out...' : 'Sign out'}
+            </button>
+          </div>
         </div>
 
+        {activeBusiness && (
+          <section className="mt-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-sm font-medium text-slate-500">Active workspace</p>
+            <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">{activeBusiness.name}</h2>
+                <p className="mt-1 text-sm text-slate-600">
+                  {[activeBusiness.industry, activeBusiness.city].filter(Boolean).join(' / ') ||
+                    'Workspace'}
+                </p>
+              </div>
+              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
+                {activeBusiness.role}
+              </span>
+            </div>
+          </section>
+        )}
+
         <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
-          {accessToken && (
-            <BusinessSetupForm accessToken={accessToken} onCreated={handleBusinessCreated} />
-          )}
+          {accessToken && <BusinessSetupForm />}
 
           <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
             <div>
@@ -460,25 +467,42 @@ function DashboardShell() {
 
             {businesses.length > 0 && (
               <div className="mt-6 space-y-3">
-                {businesses.map((business) => (
-                  <div
-                    key={business.id}
-                    className="rounded-md border border-slate-200 px-4 py-3"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <h3 className="font-semibold text-slate-900">{business.name}</h3>
-                        <p className="mt-1 text-sm text-slate-600">
-                          {[business.industry, business.city].filter(Boolean).join(' / ') ||
-                            'Workspace'}
-                        </p>
+                {businesses.map((business) => {
+                  const isActiveBusiness = business.id === activeBusinessId;
+
+                  return (
+                    <div
+                      key={business.id}
+                      className={`rounded-md border px-4 py-3 ${
+                        isActiveBusiness
+                          ? 'border-slate-900 bg-slate-50'
+                          : 'border-slate-200 bg-white'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <h3 className="font-semibold text-slate-900">{business.name}</h3>
+                          <p className="mt-1 text-sm text-slate-600">
+                            {[business.industry, business.city].filter(Boolean).join(' / ') ||
+                              'Workspace'}
+                          </p>
+                        </div>
+                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
+                          {business.role}
+                        </span>
                       </div>
-                      <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
-                        {business.role}
-                      </span>
+                      {!isActiveBusiness && (
+                        <button
+                          type="button"
+                          onClick={() => setActiveBusinessId(business.id)}
+                          className="mt-3 text-sm font-medium text-slate-900 underline-offset-4 hover:underline"
+                        >
+                          Set active
+                        </button>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </section>
@@ -491,7 +515,9 @@ function DashboardShell() {
 export default function App() {
   return (
     <ProtectedRoute fallback={<AuthPage />}>
-      <DashboardShell />
+      <BusinessProvider>
+        <DashboardShell />
+      </BusinessProvider>
     </ProtectedRoute>
   );
 }

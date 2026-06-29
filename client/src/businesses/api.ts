@@ -26,6 +26,13 @@ async function readJson<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
 }
 
+export function buildBusinessHeaders(accessToken: string, businessId: string): HeadersInit {
+  return {
+    Authorization: `Bearer ${accessToken}`,
+    'X-Business-Id': businessId,
+  };
+}
+
 export async function fetchBusinesses(accessToken: string): Promise<Business[]> {
   const response = await fetch('/api/businesses', {
     headers: {
