@@ -3,6 +3,7 @@ import { ImportStatus } from '@prisma/client';
 import { requireAuth } from '../auth/middleware';
 import { requireBusinessAccess } from '../businesses/middleware';
 import { importOrdersCsvFile } from './orderImportService';
+import { importProductsCsvFile } from './productImportService';
 import { uploadCsvFile } from './uploadMiddleware';
 
 export const importRouter = Router();
@@ -40,6 +41,31 @@ importRouter.post(
     }
 
     const result = await importOrdersCsvFile({
+      businessId: req.businessId,
+      uploadedFile: req.uploadedCsvFile,
+    });
+
+    res.status(result.status === ImportStatus.FAILED ? 422 : 201).json(result);
+  },
+);
+
+importRouter.post(
+  '/products',
+  requireAuth,
+  requireBusinessAccess,
+  uploadCsvFile,
+  async (req, res) => {
+    if (!req.businessId) {
+      sendImportError(res, 403, 'NO_BUSINESS_ACCESS', 'Missing business context');
+      return;
+    }
+
+    if (!req.uploadedCsvFile) {
+      sendImportError(res, 400, 'BAD_CSV_FORMAT', 'A CSV file is required');
+      return;
+    }
+
+    const result = await importProductsCsvFile({
       businessId: req.businessId,
       uploadedFile: req.uploadedCsvFile,
     });
