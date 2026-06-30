@@ -165,12 +165,21 @@ Import history for the active business (paginated, newest first).
 ```jsonc
 // 200 OK
 { "data": [ { "id": "uuid", "fileName": "june_orders.csv", "importType": "ORDERS",
-  "status": "COMPLETED_WITH_WARNINGS", "rowsImported": 342, "rowsFailed": 8,
-  "createdAt": "2026-06-26T03:21:00Z" } ], "meta": { "page": 1, "pageSize": 25, "total": 1, "totalPages": 1 } }
+  "status": "COMPLETED_WITH_WARNINGS", "rowsTotal": 350, "rowsImported": 342,
+  "rowsFailed": 8, "createdAt": "2026-06-26T03:21:00Z" } ],
+  "meta": { "page": 1, "pageSize": 25, "total": 1, "totalPages": 1 } }
 ```
 
 ### `GET /api/import/jobs/:id`
 Full job incl. structured `errorSummary` so the frontend can render/download an error report. `404` if not in the active business.
+```jsonc
+// 200 OK
+{ "id": "uuid", "fileName": "june_orders.csv", "importType": "ORDERS",
+  "status": "COMPLETED_WITH_WARNINGS", "rowsTotal": 350, "rowsImported": 342,
+  "rowsFailed": 8, "createdAt": "2026-06-26T03:21:00Z",
+  "errorSummary": { "errors": [], "warnings": [ { "row": 88, "column": "sku",
+    "message": "SKU \"ABC-123\" was not matched to a product", "severity": "warning" } ] } }
+```
 
 ---
 
