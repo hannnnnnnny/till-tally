@@ -11,10 +11,16 @@ import {
   type ImportType,
 } from './types';
 import {
+  createDefaultColumnMapping,
   createCsvPreview,
+  createMappedCsvFile,
+  getImportFieldDefinitions,
+  getMissingRequiredMappedFields,
   isImportablePreviewType,
+  type ColumnMapping,
   type CsvPreview,
   type CsvPreviewDetectedType,
+  type ImportFieldDefinition,
 } from './preview';
 
 const MAX_CSV_FILE_SIZE_BYTES = 25 * 1024 * 1024;
@@ -40,6 +46,7 @@ export function CsvImportPanel() {
   const [mode, setMode] = useState<ImportMode>('ORDERS');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [csvPreview, setCsvPreview] = useState<CsvPreview | null>(null);
+  const [columnMapping, setColumnMapping] = useState<ColumnMapping>({});
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -80,6 +87,11 @@ export function CsvImportPanel() {
 
     return null;
   }, [latestResult, selectedJobDetail]);
+
+  const missingRequiredFields = useMemo(
+    () => (csvPreview ? getMissingRequiredMappedFields(columnMapping, mode) : []),
+    [columnMapping, csvPreview, mode],
+  );
 
   useEffect(() => {
     let isActive = true;
@@ -127,6 +139,10 @@ export function CsvImportPanel() {
       isActive = false;
     };
   }, [selectedFile]);
+
+  useEffect(() => {
+    setColumnMapping(csvPreview ? createDefaultColumnMapping(csvPreview, mode) : {});
+  }, [csvPreview, mode]);
 
   useEffect(() => {
     let isActive = true;
@@ -227,12 +243,22 @@ export function CsvImportPanel() {
       return;
     }
 
+    if (missingRequiredFields.length > 0) {
+      setUploadError(
+        `Map required fields before importing: ${missingRequiredFields
+          .map((field) => field.label)
+          .join(', ')}`,
+      );
+      return;
+    }
+
     setIsUploading(true);
     setUploadError(null);
     setSelectedJobDetail(null);
 
     try {
-      const result = await uploadImportCsv(mode, selectedFile, activeBusinessHeaders);
+      const mappedFile = createMappedCsvFile(csvPreview, mode, columnMapping);
+      const result = await uploadImportCsv(mode, mappedFile, activeBusinessHeaders);
       const history = await fetchImportJobs(activeBusinessHeaders);
 
       setLatestResult(result);
@@ -293,13 +319,16 @@ export function CsvImportPanel() {
         <div className="space-y-6">
           <CsvUploadBox
             disabled={!activeBusinessHeaders || isUploading}
+            columnMapping={columnMapping}
             csvPreview={csvPreview}
             isDragging={isDragging}
             isPreviewing={isPreviewing}
             isUploading={isUploading}
+            missingRequiredFields={missingRequiredFields}
             mode={mode}
             previewError={previewError}
             selectedFile={selectedFile}
+            onColumnMappingChange={setColumnMapping}
             uploadError={uploadError}
             onDragChange={setIsDragging}
             onFileSelect={handleFileSelection}
@@ -323,14 +352,17 @@ export function CsvImportPanel() {
 
 type CsvUploadBoxProps = {
   disabled: boolean;
+  columnMapping: ColumnMapping;
   csvPreview: CsvPreview | null;
   isDragging: boolean;
   isPreviewing: boolean;
   isUploading: boolean;
+  missingRequiredFields: ImportFieldDefinition[];
   mode: ImportMode;
   previewError: string | null;
   selectedFile: File | null;
   uploadError: string | null;
+  onColumnMappingChange: (mapping: ColumnMapping) => void;
   onDragChange: (isDragging: boolean) => void;
   onFileSelect: (file: File | null) => void;
   onUpload: () => void;
@@ -338,14 +370,17 @@ type CsvUploadBoxProps = {
 
 function CsvUploadBox({
   disabled,
+  columnMapping,
   csvPreview,
   isDragging,
   isPreviewing,
   isUploading,
+  missingRequiredFields,
   mode,
   previewError,
   selectedFile,
   uploadError,
+  onColumnMappingChange,
   onDragChange,
   onFileSelect,
   onUpload,
@@ -355,7 +390,8 @@ function CsvUploadBox({
     !!csvPreview &&
     !isPreviewing &&
     !previewError &&
-    csvPreview.detectedType !== 'INVENTORY';
+    csvPreview.detectedType !== 'INVENTORY' &&
+    missingRequiredFields.length === 0;
 
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
@@ -417,7 +453,15 @@ function CsvUploadBox({
         </div>
       )}
 
-      {csvPreview && <CsvPreviewSummary mode={mode} preview={csvPreview} />}
+      {csvPreview && (
+        <CsvPreviewSummary
+          columnMapping={columnMapping}
+          missingRequiredFields={missingRequiredFields}
+          mode={mode}
+          preview={csvPreview}
+          onColumnMappingChange={onColumnMappingChange}
+        />
+      )}
 
       {uploadError && (
         <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -438,11 +482,20 @@ function CsvUploadBox({
 }
 
 type CsvPreviewSummaryProps = {
+  columnMapping: ColumnMapping;
+  missingRequiredFields: ImportFieldDefinition[];
   mode: ImportMode;
   preview: CsvPreview;
+  onColumnMappingChange: (mapping: ColumnMapping) => void;
 };
 
-function CsvPreviewSummary({ mode, preview }: CsvPreviewSummaryProps) {
+function CsvPreviewSummary({
+  columnMapping,
+  missingRequiredFields,
+  mode,
+  preview,
+  onColumnMappingChange,
+}: CsvPreviewSummaryProps) {
   const notice = getPreviewNotice(preview.detectedType, mode);
 
   return (
@@ -488,36 +541,172 @@ function CsvPreviewSummary({ mode, preview }: CsvPreviewSummaryProps) {
         </div>
       </div>
 
-      <div className="mt-4 overflow-hidden rounded-md border border-slate-200">
-        {preview.previewRows.length === 0 ? (
+      <ColumnMappingEditor
+        mapping={columnMapping}
+        missingRequiredFields={missingRequiredFields}
+        mode={mode}
+        preview={preview}
+        onMappingChange={onColumnMappingChange}
+      />
+
+      <MappedPreviewTable mapping={columnMapping} mode={mode} preview={preview} />
+    </section>
+  );
+}
+
+type ColumnMappingEditorProps = {
+  mapping: ColumnMapping;
+  missingRequiredFields: ImportFieldDefinition[];
+  mode: ImportMode;
+  preview: CsvPreview;
+  onMappingChange: (mapping: ColumnMapping) => void;
+};
+
+function ColumnMappingEditor({
+  mapping,
+  missingRequiredFields,
+  mode,
+  preview,
+  onMappingChange,
+}: ColumnMappingEditorProps) {
+  const fields = getImportFieldDefinitions(mode);
+  const missingFieldKeys = new Set(missingRequiredFields.map((field) => field.key));
+
+  function updateMapping(fieldKey: string, sourceHeader: string) {
+    const nextMapping = { ...mapping };
+
+    if (sourceHeader) {
+      nextMapping[fieldKey] = sourceHeader;
+    } else {
+      delete nextMapping[fieldKey];
+    }
+
+    onMappingChange(nextMapping);
+  }
+
+  return (
+    <section className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium text-slate-500">Column mapping</p>
+          <h4 className="mt-1 text-base font-bold text-slate-900">
+            Map CSV columns to TillTally fields
+          </h4>
+        </div>
+        <span className="shrink-0 text-xs font-medium text-slate-500">{fields.length} fields</span>
+      </div>
+
+      {missingRequiredFields.length > 0 && (
+        <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          Required mappings missing: {missingRequiredFields.map((field) => field.label).join(', ')}
+        </div>
+      )}
+
+      <div className="mt-4 grid gap-3">
+        {fields.map((field) => {
+          const isMissing = missingFieldKeys.has(field.key);
+
+          return (
+            <div
+              key={field.key}
+              className={`grid gap-2 rounded-md border bg-white p-3 sm:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] sm:items-center ${
+                isMissing ? 'border-amber-200' : 'border-slate-200'
+              }`}
+            >
+              <label htmlFor={`mapping-${field.key}`} className="min-w-0">
+                <span className="block truncate text-sm font-semibold text-slate-900">
+                  {field.label}
+                </span>
+                <span className="mt-1 flex items-center gap-2 text-xs text-slate-500">
+                  <span>{field.key}</span>
+                  {field.required && (
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-700">
+                      Required
+                    </span>
+                  )}
+                </span>
+              </label>
+
+              <select
+                id={`mapping-${field.key}`}
+                value={mapping[field.key] ?? ''}
+                onChange={(event) => updateMapping(field.key, event.target.value)}
+                className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+              >
+                <option value="">Not mapped</option>
+                {preview.headers.map((header, index) => (
+                  <option key={`${header}-${index}`} value={header}>
+                    {header}
+                  </option>
+                ))}
+              </select>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+type MappedPreviewTableProps = {
+  mapping: ColumnMapping;
+  mode: ImportMode;
+  preview: CsvPreview;
+};
+
+function MappedPreviewTable({ mapping, mode, preview }: MappedPreviewTableProps) {
+  const mappedFields = getImportFieldDefinitions(mode).filter((field) => mapping[field.key]);
+
+  return (
+    <section className="mt-5">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="text-xs font-medium uppercase text-slate-500">Mapped preview</p>
+        <span className="text-xs text-slate-500">{preview.previewRows.length} preview rows</span>
+      </div>
+
+      <div className="overflow-hidden rounded-md border border-slate-200">
+        {mappedFields.length === 0 ? (
+          <div className="bg-slate-50 px-3 py-3 text-sm text-slate-600">
+            Map at least one field to preview transformed rows.
+          </div>
+        ) : preview.previewRows.length === 0 ? (
           <div className="bg-slate-50 px-3 py-3 text-sm text-slate-600">No data rows found.</div>
         ) : (
           <div className="max-h-72 overflow-auto">
             <table className="min-w-max divide-y divide-slate-200 text-left text-xs">
               <thead className="sticky top-0 bg-slate-50">
                 <tr>
-                  {preview.headers.map((header, index) => (
+                  {mappedFields.map((field) => (
                     <th
-                      key={`${header}-${index}`}
+                      key={field.key}
                       scope="col"
                       className="max-w-48 px-3 py-2 font-semibold text-slate-600"
                     >
-                      <span className="block truncate">{header}</span>
+                      <span className="block truncate">{field.key}</span>
+                      <span className="mt-0.5 block truncate font-normal text-slate-400">
+                        {mapping[field.key]}
+                      </span>
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white">
                 {preview.previewRows.map((row, rowIndex) => (
-                  <tr key={`preview-row-${rowIndex}`}>
-                    {preview.headers.map((header, cellIndex) => (
-                      <td
-                        key={`${header}-${rowIndex}-${cellIndex}`}
-                        className="max-w-48 px-3 py-2 text-slate-700"
-                      >
-                        <span className="block truncate">{row[cellIndex] || '-'}</span>
-                      </td>
-                    ))}
+                  <tr key={`mapped-preview-row-${rowIndex}`}>
+                    {mappedFields.map((field) => {
+                      const sourceIndex = preview.headers.indexOf(mapping[field.key] ?? '');
+
+                      return (
+                        <td
+                          key={`${field.key}-${rowIndex}`}
+                          className="max-w-48 px-3 py-2 text-slate-700"
+                        >
+                          <span className="block truncate">
+                            {sourceIndex >= 0 ? row[sourceIndex] || '-' : '-'}
+                          </span>
+                        </td>
+                      );
+                    })}
                   </tr>
                 ))}
               </tbody>
