@@ -10,6 +10,12 @@ import {
   type ImportStatus,
   type ImportType,
 } from './types';
+import {
+  createCsvPreview,
+  isImportablePreviewType,
+  type CsvPreview,
+  type CsvPreviewDetectedType,
+} from './preview';
 
 const MAX_CSV_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 
@@ -33,6 +39,9 @@ export function CsvImportPanel() {
   const { activeBusiness, activeBusinessHeaders } = useBusinesses();
   const [mode, setMode] = useState<ImportMode>('ORDERS');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [csvPreview, setCsvPreview] = useState<CsvPreview | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [isPreviewing, setIsPreviewing] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -71,6 +80,53 @@ export function CsvImportPanel() {
 
     return null;
   }, [latestResult, selectedJobDetail]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadPreview() {
+      if (!selectedFile) {
+        setCsvPreview(null);
+        setPreviewError(null);
+        setIsPreviewing(false);
+        return;
+      }
+
+      setIsPreviewing(true);
+      setCsvPreview(null);
+      setPreviewError(null);
+
+      try {
+        const nextPreview = await createCsvPreview(selectedFile);
+
+        if (!isActive) {
+          return;
+        }
+
+        setCsvPreview(nextPreview);
+
+        if (isImportablePreviewType(nextPreview.detectedType)) {
+          setMode(nextPreview.detectedType);
+        }
+      } catch (error) {
+        if (!isActive) {
+          return;
+        }
+
+        setPreviewError(error instanceof Error ? error.message : 'Unable to preview CSV');
+      } finally {
+        if (isActive) {
+          setIsPreviewing(false);
+        }
+      }
+    }
+
+    void loadPreview();
+
+    return () => {
+      isActive = false;
+    };
+  }, [selectedFile]);
 
   useEffect(() => {
     let isActive = true;
@@ -149,6 +205,28 @@ export function CsvImportPanel() {
       return;
     }
 
+    if (isPreviewing) {
+      setUploadError('CSV preview is still loading');
+      return;
+    }
+
+    if (previewError) {
+      setUploadError(previewError);
+      return;
+    }
+
+    if (!csvPreview) {
+      setUploadError('Preview the CSV before importing');
+      return;
+    }
+
+    if (csvPreview.detectedType === 'INVENTORY') {
+      setUploadError(
+        'Inventory CSV preview is supported, but inventory import is not available yet',
+      );
+      return;
+    }
+
     setIsUploading(true);
     setUploadError(null);
     setSelectedJobDetail(null);
@@ -192,9 +270,7 @@ export function CsvImportPanel() {
         <div>
           <p className="text-sm font-medium text-slate-500">Data import</p>
           <h2 className="mt-1 text-2xl font-bold text-slate-900">CSV imports</h2>
-          {activeBusiness && (
-            <p className="mt-1 text-sm text-slate-600">{activeBusiness.name}</p>
-          )}
+          {activeBusiness && <p className="mt-1 text-sm text-slate-600">{activeBusiness.name}</p>}
         </div>
 
         <div className="grid grid-cols-2 rounded-md bg-slate-100 p-1 sm:w-56">
@@ -217,8 +293,12 @@ export function CsvImportPanel() {
         <div className="space-y-6">
           <CsvUploadBox
             disabled={!activeBusinessHeaders || isUploading}
+            csvPreview={csvPreview}
             isDragging={isDragging}
+            isPreviewing={isPreviewing}
             isUploading={isUploading}
+            mode={mode}
+            previewError={previewError}
             selectedFile={selectedFile}
             uploadError={uploadError}
             onDragChange={setIsDragging}
@@ -243,8 +323,12 @@ export function CsvImportPanel() {
 
 type CsvUploadBoxProps = {
   disabled: boolean;
+  csvPreview: CsvPreview | null;
   isDragging: boolean;
+  isPreviewing: boolean;
   isUploading: boolean;
+  mode: ImportMode;
+  previewError: string | null;
   selectedFile: File | null;
   uploadError: string | null;
   onDragChange: (isDragging: boolean) => void;
@@ -254,14 +338,25 @@ type CsvUploadBoxProps = {
 
 function CsvUploadBox({
   disabled,
+  csvPreview,
   isDragging,
+  isPreviewing,
   isUploading,
+  mode,
+  previewError,
   selectedFile,
   uploadError,
   onDragChange,
   onFileSelect,
   onUpload,
 }: CsvUploadBoxProps) {
+  const canImport =
+    !!selectedFile &&
+    !!csvPreview &&
+    !isPreviewing &&
+    !previewError &&
+    csvPreview.detectedType !== 'INVENTORY';
+
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
       <label
@@ -310,6 +405,20 @@ function CsvUploadBox({
         </div>
       )}
 
+      {isPreviewing && (
+        <div className="mt-3 rounded-md border border-slate-200 bg-white px-3 py-3 text-sm text-slate-600">
+          Reading CSV preview...
+        </div>
+      )}
+
+      {previewError && (
+        <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {previewError}
+        </div>
+      )}
+
+      {csvPreview && <CsvPreviewSummary mode={mode} preview={csvPreview} />}
+
       {uploadError && (
         <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
           {uploadError}
@@ -318,13 +427,105 @@ function CsvUploadBox({
 
       <button
         type="button"
-        disabled={disabled || !selectedFile || isUploading}
+        disabled={disabled || !canImport || isUploading}
         onClick={onUpload}
         className="mt-4 w-full rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-400"
       >
-        {isUploading ? 'Importing...' : 'Import CSV'}
+        {isUploading ? 'Importing...' : 'Confirm import'}
       </button>
     </div>
+  );
+}
+
+type CsvPreviewSummaryProps = {
+  mode: ImportMode;
+  preview: CsvPreview;
+};
+
+function CsvPreviewSummary({ mode, preview }: CsvPreviewSummaryProps) {
+  const notice = getPreviewNotice(preview.detectedType, mode);
+
+  return (
+    <section className="mt-4 rounded-lg border border-slate-200 bg-white p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-medium text-slate-500">CSV preview</p>
+          <h3 className="mt-1 truncate text-base font-bold text-slate-900">{preview.fileName}</h3>
+          <p className="mt-1 text-sm text-slate-600">
+            {preview.rowsTotal} rows / {formatFileSize(preview.fileSize)}
+          </p>
+        </div>
+        <span
+          className={`rounded-full px-2.5 py-1 text-xs font-medium ${getConfidenceClass(preview.confidence)}`}
+        >
+          {formatDetectedImportType(preview.detectedType)}
+        </span>
+      </div>
+
+      {notice && (
+        <div
+          className={`mt-3 rounded-md border px-3 py-2 text-sm ${
+            notice.tone === 'warning'
+              ? 'border-amber-200 bg-amber-50 text-amber-800'
+              : 'border-slate-200 bg-slate-50 text-slate-600'
+          }`}
+        >
+          {notice.message}
+        </div>
+      )}
+
+      <div className="mt-4">
+        <p className="text-xs font-medium uppercase text-slate-500">Headers</p>
+        <div className="mt-2 flex max-h-24 flex-wrap gap-2 overflow-auto pr-1">
+          {preview.headers.map((header, index) => (
+            <span
+              key={`${header}-${index}`}
+              className="max-w-full rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700"
+            >
+              {header}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-4 overflow-hidden rounded-md border border-slate-200">
+        {preview.previewRows.length === 0 ? (
+          <div className="bg-slate-50 px-3 py-3 text-sm text-slate-600">No data rows found.</div>
+        ) : (
+          <div className="max-h-72 overflow-auto">
+            <table className="min-w-max divide-y divide-slate-200 text-left text-xs">
+              <thead className="sticky top-0 bg-slate-50">
+                <tr>
+                  {preview.headers.map((header, index) => (
+                    <th
+                      key={`${header}-${index}`}
+                      scope="col"
+                      className="max-w-48 px-3 py-2 font-semibold text-slate-600"
+                    >
+                      <span className="block truncate">{header}</span>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {preview.previewRows.map((row, rowIndex) => (
+                  <tr key={`preview-row-${rowIndex}`}>
+                    {preview.headers.map((header, cellIndex) => (
+                      <td
+                        key={`${header}-${rowIndex}-${cellIndex}`}
+                        className="max-w-48 px-3 py-2 text-slate-700"
+                      >
+                        <span className="block truncate">{row[cellIndex] || '-'}</span>
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -364,10 +565,14 @@ function ImportResultPanel({ data, isLoadingDetail }: ImportResultPanelProps) {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-sm font-medium text-slate-500">Import result</p>
-          <h3 className="mt-1 text-xl font-bold text-slate-900">{formatImportType(data.importType)}</h3>
+          <h3 className="mt-1 text-xl font-bold text-slate-900">
+            {formatImportType(data.importType)}
+          </h3>
           {data.fileName && <p className="mt-1 text-sm text-slate-600">{data.fileName}</p>}
         </div>
-        <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${getStatusClass(data.status)}`}>
+        <span
+          className={`rounded-full px-2.5 py-1 text-xs font-medium ${getStatusClass(data.status)}`}
+        >
           {formatStatus(data.status)}
         </span>
       </div>
@@ -534,6 +739,14 @@ function formatImportType(value: ImportType): string {
   return labels[value];
 }
 
+function formatDetectedImportType(value: CsvPreviewDetectedType): string {
+  if (value === 'UNKNOWN') {
+    return 'Unknown';
+  }
+
+  return formatImportType(value);
+}
+
 function formatStatus(value: ImportStatus): string {
   const labels: Record<ImportStatus, string> = {
     PENDING: 'Pending',
@@ -560,4 +773,46 @@ function getStatusClass(value: ImportStatus): string {
   }
 
   return 'bg-slate-100 text-slate-700';
+}
+
+function getConfidenceClass(confidence: CsvPreview['confidence']): string {
+  if (confidence === 'high') {
+    return 'bg-emerald-100 text-emerald-700';
+  }
+
+  if (confidence === 'medium') {
+    return 'bg-amber-100 text-amber-700';
+  }
+
+  return 'bg-slate-100 text-slate-700';
+}
+
+function getPreviewNotice(
+  detectedType: CsvPreviewDetectedType,
+  mode: ImportMode,
+): { message: string; tone: 'neutral' | 'warning' } | null {
+  if (detectedType === 'UNKNOWN') {
+    return {
+      message: `No confident import type match. This will import as ${formatImportType(mode)}.`,
+      tone: 'neutral',
+    };
+  }
+
+  if (detectedType === 'INVENTORY') {
+    return {
+      message: 'Inventory CSV detected. Inventory uploads are not available yet.',
+      tone: 'warning',
+    };
+  }
+
+  if (detectedType !== mode) {
+    return {
+      message: `Detected ${formatImportType(detectedType)}. This will import as ${formatImportType(
+        mode,
+      )}.`,
+      tone: 'warning',
+    };
+  }
+
+  return null;
 }
