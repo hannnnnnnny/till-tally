@@ -25,6 +25,22 @@ export type ImportFieldDefinition = {
   required: boolean;
 };
 
+export type MappedCsvRow = {
+  rowIndex: number;
+  sourceRowNumber: number;
+  values: string[];
+  valuesByField: Record<string, string>;
+};
+
+export type MappedCsvData = {
+  fields: ImportFieldDefinition[];
+  rows: MappedCsvRow[];
+};
+
+export type MappedCsvFileOptions = {
+  includedRowIndexes?: ReadonlySet<number>;
+};
+
 type ImportDetectionScore = {
   importType: ImportType;
   requiredMatches: number;
@@ -166,19 +182,45 @@ export function createMappedCsvFile(
   preview: CsvPreview,
   mode: ImportMode,
   mapping: ColumnMapping,
+  options: MappedCsvFileOptions = {},
 ): File {
-  const fields = getImportFieldDefinitions(mode).filter((field) => mapping[field.key]);
-  const sourceIndexes = fields.map((field) => preview.headers.indexOf(mapping[field.key] ?? ''));
-  const csvRows = [
-    fields.map((field) => field.key),
-    ...preview.dataRows.map((row) =>
-      sourceIndexes.map((sourceIndex) => (sourceIndex >= 0 ? (row[sourceIndex] ?? '') : '')),
-    ),
-  ];
+  const mappedCsv = createMappedCsvData(preview, mode, mapping);
+  const rows = options.includedRowIndexes
+    ? mappedCsv.rows.filter((row) => options.includedRowIndexes?.has(row.rowIndex))
+    : mappedCsv.rows;
+  const csvRows = [mappedCsv.fields.map((field) => field.key), ...rows.map((row) => row.values)];
 
   return new File([stringifyCsv(csvRows)], preview.fileName, {
     type: 'text/csv',
   });
+}
+
+export function createMappedCsvData(
+  preview: CsvPreview,
+  mode: ImportMode,
+  mapping: ColumnMapping,
+): MappedCsvData {
+  const fields = getImportFieldDefinitions(mode).filter((field) => mapping[field.key]);
+  const sourceIndexes = fields.map((field) => preview.headers.indexOf(mapping[field.key] ?? ''));
+  const rows = preview.dataRows.map((row, rowIndex) => {
+    const values = sourceIndexes.map((sourceIndex) =>
+      sourceIndex >= 0 ? (row[sourceIndex] ?? '') : '',
+    );
+
+    return {
+      rowIndex,
+      sourceRowNumber: rowIndex + 2,
+      values,
+      valuesByField: Object.fromEntries(
+        fields.map((field, fieldIndex) => [field.key, values[fieldIndex] ?? '']),
+      ),
+    };
+  });
+
+  return {
+    fields,
+    rows,
+  };
 }
 
 function parseCsvRows(csvText: string): string[][] {
