@@ -6,6 +6,7 @@ import { type AuthFormValues, type AuthMode } from './auth/types';
 import { createBusiness } from './businesses/api';
 import { BusinessProvider, useBusinesses } from './businesses/BusinessContext';
 import { type BusinessFormValues, type SalesChannel } from './businesses/types';
+import { CsvImportPanel } from './imports/CsvImportPanel';
 
 const CHANNEL_OPTIONS: Array<{ value: SalesChannel; label: string }> = [
   { value: 'SHOPIFY', label: 'Shopify' },
@@ -437,6 +438,10 @@ function DashboardShell() {
             </div>
           </section>
         )}
+
+        <div className="mt-8">
+          <CsvImportPanel />
+        </div>
 
         <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
           {accessToken && <BusinessSetupForm />}
