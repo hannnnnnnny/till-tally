@@ -1,4 +1,5 @@
 import { parse as parseCsv } from 'csv-parse/sync';
+import { stringify as stringifyCsv } from 'csv-stringify/sync';
 import { type ImportMode, type ImportType } from './types';
 
 export type CsvPreviewConfidence = 'high' | 'medium' | 'low';
@@ -10,9 +11,18 @@ export type CsvPreview = {
   fileSize: number;
   headers: string[];
   rowsTotal: number;
+  dataRows: string[][];
   previewRows: string[][];
   detectedType: CsvPreviewDetectedType;
   confidence: CsvPreviewConfidence;
+};
+
+export type ColumnMapping = Record<string, string>;
+
+export type ImportFieldDefinition = {
+  key: string;
+  label: string;
+  required: boolean;
 };
 
 type ImportDetectionScore = {
@@ -30,6 +40,31 @@ const REQUIRED_COLUMNS: Record<ImportType, readonly string[]> = {
   ORDERS: ['order_number', 'order_date', 'channel', 'total_amount'],
   PRODUCTS: ['sku', 'name', 'cost_price'],
   INVENTORY: ['sku', 'stock_quantity', 'snapshot_date'],
+};
+
+const IMPORT_FIELD_DEFINITIONS: Record<ImportMode, readonly ImportFieldDefinition[]> = {
+  ORDERS: [
+    { key: 'order_number', label: 'Order number', required: true },
+    { key: 'order_date', label: 'Order date', required: true },
+    { key: 'channel', label: 'Channel', required: true },
+    { key: 'total_amount', label: 'Total amount', required: true },
+    { key: 'discount_amount', label: 'Discount amount', required: false },
+    { key: 'customer_region', label: 'Customer region', required: false },
+    { key: 'sku', label: 'Item SKU', required: false },
+    { key: 'quantity', label: 'Item quantity', required: false },
+    { key: 'unit_price', label: 'Unit price', required: false },
+    { key: 'total_price', label: 'Line total', required: false },
+    { key: 'cost_price', label: 'Cost price', required: false },
+  ],
+  PRODUCTS: [
+    { key: 'sku', label: 'SKU', required: true },
+    { key: 'name', label: 'Product name', required: true },
+    { key: 'cost_price', label: 'Cost price', required: true },
+    { key: 'category', label: 'Category', required: false },
+    { key: 'vendor', label: 'Vendor', required: false },
+    { key: 'current_stock', label: 'Current stock', required: false },
+    { key: 'last_sold_at', label: 'Last sold date', required: false },
+  ],
 };
 
 const HEADER_ALIASES: Record<ImportType, Map<string, string>> = {
@@ -71,7 +106,7 @@ export async function createCsvPreview(file: File): Promise<CsvPreview> {
     throw new Error('CSV must include a header row');
   }
 
-  const dataRows = rows.slice(1);
+  const dataRows = rows.slice(1).map((row) => padRow(row, headers.length));
   const detection = detectImportType(headers);
 
   return {
@@ -79,7 +114,8 @@ export async function createCsvPreview(file: File): Promise<CsvPreview> {
     fileSize: file.size,
     headers,
     rowsTotal: dataRows.length,
-    previewRows: dataRows.slice(0, PREVIEW_ROW_LIMIT).map((row) => padRow(row, headers.length)),
+    dataRows,
+    previewRows: dataRows.slice(0, PREVIEW_ROW_LIMIT),
     detectedType: detection.detectedType,
     confidence: detection.confidence,
   };
@@ -89,6 +125,60 @@ export function isImportablePreviewType(
   detectedType: CsvPreviewDetectedType,
 ): detectedType is ImportMode {
   return detectedType === 'ORDERS' || detectedType === 'PRODUCTS';
+}
+
+export function getImportFieldDefinitions(mode: ImportMode): readonly ImportFieldDefinition[] {
+  return IMPORT_FIELD_DEFINITIONS[mode];
+}
+
+export function createDefaultColumnMapping(preview: CsvPreview, mode: ImportMode): ColumnMapping {
+  const selectedHeaders = new Set<string>();
+  const mappedHeaders = preview.headers.map((header) => ({
+    header,
+    canonicalColumn: normalizeHeader(header, HEADER_ALIASES[mode]),
+  }));
+
+  return Object.fromEntries(
+    getImportFieldDefinitions(mode).flatMap((field) => {
+      const matchedHeader = mappedHeaders.find(
+        ({ canonicalColumn, header }) =>
+          canonicalColumn === field.key && !selectedHeaders.has(header),
+      );
+
+      if (!matchedHeader) {
+        return [];
+      }
+
+      selectedHeaders.add(matchedHeader.header);
+      return [[field.key, matchedHeader.header]];
+    }),
+  );
+}
+
+export function getMissingRequiredMappedFields(
+  mapping: ColumnMapping,
+  mode: ImportMode,
+): ImportFieldDefinition[] {
+  return getImportFieldDefinitions(mode).filter((field) => field.required && !mapping[field.key]);
+}
+
+export function createMappedCsvFile(
+  preview: CsvPreview,
+  mode: ImportMode,
+  mapping: ColumnMapping,
+): File {
+  const fields = getImportFieldDefinitions(mode).filter((field) => mapping[field.key]);
+  const sourceIndexes = fields.map((field) => preview.headers.indexOf(mapping[field.key] ?? ''));
+  const csvRows = [
+    fields.map((field) => field.key),
+    ...preview.dataRows.map((row) =>
+      sourceIndexes.map((sourceIndex) => (sourceIndex >= 0 ? (row[sourceIndex] ?? '') : '')),
+    ),
+  ];
+
+  return new File([stringifyCsv(csvRows)], preview.fileName, {
+    type: 'text/csv',
+  });
 }
 
 function parseCsvRows(csvText: string): string[][] {
