@@ -1,11 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { SalesChannel } from '@prisma/client';
-import {
-  validateInventoryCsv,
-  validateOrdersCsv,
-  validateProductsCsv,
-} from './csvValidation';
+import { validateInventoryCsv, validateOrdersCsv, validateProductsCsv } from './csvValidation';
 
 describe('csv validation service', () => {
   it('validates product rows and defaults optional stock values', () => {
@@ -16,6 +12,7 @@ WJ-001,Womens Jacket,38.50,Outerwear,Local Supplier`);
     assert.equal(result.errors.length, 0);
     assert.equal(result.validRows.length, 1);
     assert.deepEqual(result.validRows[0], {
+      sourceRow: 2,
       sku: 'WJ-001',
       name: 'Womens Jacket',
       category: 'Outerwear',

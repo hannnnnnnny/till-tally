@@ -18,6 +18,7 @@ export type CsvValidationResult<T> = {
 };
 
 export type ProductImportRow = {
+  sourceRow: number;
   sku: string;
   name: string;
   category: string | null;
@@ -107,6 +108,7 @@ export function validateProductsCsv(csvText: string): CsvValidationResult<Produc
     }
 
     return {
+      sourceRow: context.record.rowNumber,
       sku,
       name,
       category: readOptionalString(context, 'category'),

@@ -153,7 +153,7 @@ Processing model: parse → validate each row → insert valid rows → record f
 ```
 
 ### `POST /api/import/products`
-`multipart/form-data`: `file` = products CSV (header per [`TT.md`](../TT.md) §17.3). Same response shape; upserts by `(businessId, sku)`.
+`multipart/form-data`: `file` = products CSV (header per [`TT.md`](../TT.md) §17.3). Same response shape; upserts by `(businessId, sku)`. Duplicate SKUs within the same CSV are skipped with a warning to avoid ambiguous overwrites.
 
 Common import validations (see [`DATABASE.md`](./DATABASE.md) §9):
 required columns present · valid date · numeric prices ≥ 0 · `quantity > 0` · SKU match (warn if missing) · duplicate order number (skip + warn) · unknown channel → `OTHER` + warn.
