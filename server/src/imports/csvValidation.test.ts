@@ -23,6 +23,23 @@ WJ-001,Womens Jacket,38.50,Outerwear,Local Supplier`);
     });
   });
 
+  it('maps product header aliases before validation', () => {
+    const result = validateProductsCsv(`Product Name,Item SKU,Cost,Stock,Supplier,Last Sold,Product Category
+Womens Jacket,WJ-001,38.50,12,Local Supplier,2026-06-20,Outerwear`);
+
+    assert.equal(result.errors.length, 0);
+    assert.deepEqual(result.validRows[0], {
+      sourceRow: 2,
+      sku: 'WJ-001',
+      name: 'Womens Jacket',
+      category: 'Outerwear',
+      vendor: 'Local Supplier',
+      costPrice: 38.5,
+      currentStock: 12,
+      lastSoldAt: '2026-06-20',
+    });
+  });
+
   it('reports missing required columns before validating rows', () => {
     const result = validateProductsCsv(`sku,name
 WJ-001,Womens Jacket`);
@@ -55,6 +72,32 @@ WJ-001,Womens Jacket`);
         severity: 'error',
       },
     ]);
+  });
+
+  it('maps reordered order header aliases before validation', () => {
+    const result = validateOrdersCsv(
+      `Revenue,Sale Date,Platform,Order ID,Discount,Region,Item SKU,Qty,Price,Line Total,Item Cost
+49.99,2026-06-20,TradeMe,1001,5,Auckland,WJ-001,2,10.00,20.00,4.50`,
+    );
+
+    assert.equal(result.errors.length, 0);
+    assert.equal(result.validRows.length, 1);
+    assert.deepEqual(result.validRows[0], {
+      sourceRow: 2,
+      orderNumber: '1001',
+      orderDate: '2026-06-20',
+      channel: SalesChannel.TRADE_ME,
+      totalAmount: 49.99,
+      discountAmount: 5,
+      customerRegion: 'Auckland',
+      item: {
+        sku: 'WJ-001',
+        quantity: 2,
+        unitPrice: 10,
+        totalPrice: 20,
+        costPrice: 4.5,
+      },
+    });
   });
 
   it('maps unknown channels to OTHER with a warning', () => {
@@ -99,6 +142,18 @@ WJ-001,Womens Jacket`);
         severity: 'warning',
       },
     ]);
+  });
+
+  it('maps inventory header aliases before validation', () => {
+    const result = validateInventoryCsv(`Item SKU,On Hand,Count Date
+WJ-001,12,2026-06-20`);
+
+    assert.equal(result.errors.length, 0);
+    assert.deepEqual(result.validRows[0], {
+      sku: 'WJ-001',
+      stockQuantity: 12,
+      snapshotDate: '2026-06-20',
+    });
   });
 
   it('validates inventory snapshot rows', () => {

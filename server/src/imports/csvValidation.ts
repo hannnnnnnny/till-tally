@@ -75,6 +75,36 @@ const ORDER_REQUIRED_COLUMNS = ['order_number', 'order_date', 'channel', 'total_
 const ORDER_ITEM_COLUMNS = ['sku', 'quantity', 'unit_price', 'total_price', 'cost_price'] as const;
 const INVENTORY_REQUIRED_COLUMNS = ['sku', 'stock_quantity', 'snapshot_date'] as const;
 
+const PRODUCT_HEADER_ALIASES = buildHeaderAliases({
+  sku: ['item_sku', 'product_sku', 'variant_sku'],
+  name: ['product_name', 'item_name', 'title'],
+  category: ['product_category', 'type'],
+  vendor: ['supplier', 'brand'],
+  cost_price: ['cost', 'unit_cost', 'item_cost', 'cogs'],
+  current_stock: ['stock', 'stock_on_hand', 'on_hand', 'quantity_on_hand', 'inventory_quantity'],
+  last_sold_at: ['last_sold', 'last_sold_date', 'last_sale_date'],
+});
+
+const ORDER_HEADER_ALIASES = buildHeaderAliases({
+  order_number: ['order_id', 'order_no', 'order', 'receipt_number', 'transaction_id'],
+  order_date: ['date', 'sale_date', 'sales_date', 'created_at', 'paid_at'],
+  channel: ['platform', 'source', 'sales_channel', 'order_source'],
+  total_amount: ['total', 'amount', 'revenue', 'sales', 'gross_sales', 'order_total'],
+  discount_amount: ['discount', 'discounts', 'discount_total'],
+  customer_region: ['region', 'customer_region', 'shipping_region', 'customer_city'],
+  sku: ['item_sku', 'product_sku', 'variant_sku'],
+  quantity: ['qty', 'quantity_sold', 'item_quantity'],
+  unit_price: ['price', 'item_price', 'unit_amount'],
+  total_price: ['line_total', 'item_total', 'line_amount'],
+  cost_price: ['cost', 'unit_cost', 'item_cost', 'cogs'],
+});
+
+const INVENTORY_HEADER_ALIASES = buildHeaderAliases({
+  sku: ['item_sku', 'product_sku', 'variant_sku'],
+  stock_quantity: ['stock', 'stock_on_hand', 'on_hand', 'quantity_on_hand', 'inventory_quantity'],
+  snapshot_date: ['date', 'stock_date', 'inventory_date', 'count_date'],
+});
+
 const SALES_CHANNEL_ALIASES = new Map<string, SalesChannel>([
   ['shopify', SalesChannel.SHOPIFY],
   ['trade_me', SalesChannel.TRADE_ME],
@@ -90,7 +120,7 @@ const SALES_CHANNEL_ALIASES = new Map<string, SalesChannel>([
 ]);
 
 export function validateProductsCsv(csvText: string): CsvValidationResult<ProductImportRow> {
-  const parsed = parseCsvRecords(csvText);
+  const parsed = parseCsvRecords(csvText, PRODUCT_HEADER_ALIASES);
   const setupErrors = requireColumns(parsed.headers, PRODUCT_REQUIRED_COLUMNS);
 
   return validateRecords(parsed, setupErrors, (context) => {
@@ -121,7 +151,7 @@ export function validateProductsCsv(csvText: string): CsvValidationResult<Produc
 }
 
 export function validateOrdersCsv(csvText: string): CsvValidationResult<OrderImportRow> {
-  const parsed = parseCsvRecords(csvText);
+  const parsed = parseCsvRecords(csvText, ORDER_HEADER_ALIASES);
   const setupErrors = requireColumns(parsed.headers, ORDER_REQUIRED_COLUMNS);
   const seenOrderNumbers = new Set<string>();
 
@@ -169,7 +199,7 @@ export function validateOrdersCsv(csvText: string): CsvValidationResult<OrderImp
 }
 
 export function validateInventoryCsv(csvText: string): CsvValidationResult<InventoryImportRow> {
-  const parsed = parseCsvRecords(csvText);
+  const parsed = parseCsvRecords(csvText, INVENTORY_HEADER_ALIASES);
   const setupErrors = requireColumns(parsed.headers, INVENTORY_REQUIRED_COLUMNS);
 
   return validateRecords(parsed, setupErrors, (context) => {
@@ -189,7 +219,7 @@ export function validateInventoryCsv(csvText: string): CsvValidationResult<Inven
   });
 }
 
-function parseCsvRecords(csvText: string): ParsedCsv {
+function parseCsvRecords(csvText: string, headerAliases: Map<string, string>): ParsedCsv {
   const trimmedCsv = csvText.trim();
 
   if (!trimmedCsv) {
@@ -217,7 +247,7 @@ function parseCsvRecords(csvText: string): ParsedCsv {
     }
 
     const rawHeaders = rows[0] ?? [];
-    const normalizedHeaders = rawHeaders.map(normalizeHeader);
+    const normalizedHeaders = rawHeaders.map((header) => normalizeHeader(header, headerAliases));
     const duplicateHeaders = findDuplicates(normalizedHeaders.filter(Boolean));
     const errors = duplicateHeaders.map((header) => ({
       row: 1,
@@ -507,15 +537,36 @@ function mapRowValues(headers: string[], row: string[]): Map<string, string> {
   return values;
 }
 
-function normalizeHeader(header: string): string {
+function buildHeaderAliases(aliasesByColumn: Record<string, readonly string[]>): Map<string, string> {
+  const aliases = new Map<string, string>();
+
+  for (const [canonicalColumn, aliasColumns] of Object.entries(aliasesByColumn)) {
+    for (const aliasColumn of [canonicalColumn, ...aliasColumns]) {
+      aliases.set(normalizeHeaderKey(aliasColumn), canonicalColumn);
+    }
+  }
+
+  return aliases;
+}
+
+function normalizeHeader(header: string, headerAliases: Map<string, string>): string {
+  const normalizedHeader = normalizeHeaderKey(header);
+
+  return headerAliases.get(normalizedHeader) ?? normalizedHeader;
+}
+
+function normalizeHeaderKey(header: string): string {
   return header
     .trim()
     .toLowerCase()
-    .replace(/[\s-]+/g, '_');
+    .replace(/['’]/g, '')
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
 }
 
 function normalizeChannel(channel: string): string {
-  return normalizeHeader(channel).replace(/[^a-z0-9_]/g, '');
+  return normalizeHeaderKey(channel);
 }
 
 function findDuplicates(values: string[]): string[] {
