@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import { ImportStatus, ImportType } from '@prisma/client';
 import express, { type RequestHandler } from 'express';
 import request from 'supertest';
-import { createImportRouter, type ImportRouterDependencies } from './routes';
+import { createImportRouter, type ImportRouterDependencies } from './importRouterFactory';
 import { type ImportJobDetail, type ImportJobsListResult } from './importJobService';
 
 type ErrorResponse = {
