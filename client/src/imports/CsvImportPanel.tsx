@@ -3,6 +3,7 @@ import { useBusinesses } from '../businesses/BusinessContext';
 import { fetchImportJobDetail, fetchImportJobs, uploadImportCsv } from './api';
 import {
   type ImportIssue,
+  type ImportIssueSeverity,
   type ImportJobDetail,
   type ImportJobSummary,
   type ImportMode,
@@ -34,6 +35,7 @@ import {
   saveImportMappingTemplate,
   type ImportMappingTemplate,
 } from './templates';
+import { validateMappedCsvRows, type PreflightValidation } from './rowValidation';
 
 const MAX_CSV_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 
@@ -65,6 +67,7 @@ export function CsvImportPanel() {
   const [templateName, setTemplateName] = useState('');
   const [templateNotice, setTemplateNotice] = useState<string | null>(null);
   const [suggestionNotice, setSuggestionNotice] = useState<string | null>(null);
+  const [skipInvalidRowsConfirmed, setSkipInvalidRowsConfirmed] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -110,6 +113,18 @@ export function CsvImportPanel() {
     () => (csvPreview ? getMissingRequiredMappedFields(columnMapping, mode) : []),
     [columnMapping, csvPreview, mode],
   );
+
+  const preflightValidation = useMemo(() => {
+    if (
+      !csvPreview ||
+      csvPreview.detectedType === 'INVENTORY' ||
+      missingRequiredFields.length > 0
+    ) {
+      return null;
+    }
+
+    return validateMappedCsvRows(csvPreview, mode, columnMapping);
+  }, [columnMapping, csvPreview, missingRequiredFields.length, mode]);
 
   const suggestedTemplate = useMemo(() => {
     if (!csvPreview) {
@@ -226,6 +241,10 @@ export function CsvImportPanel() {
   }, [csvPreview, ignoredTemplateId, mappingTemplates, mode]);
 
   useEffect(() => {
+    setSkipInvalidRowsConfirmed(false);
+  }, [columnMapping, csvPreview, mode]);
+
+  useEffect(() => {
     let isActive = true;
 
     async function loadHistory() {
@@ -270,6 +289,7 @@ export function CsvImportPanel() {
     setUploadError(null);
     setLatestResult(null);
     setSelectedJobDetail(null);
+    setSkipInvalidRowsConfirmed(false);
 
     if (!file) {
       setSelectedFile(null);
@@ -333,6 +353,13 @@ export function CsvImportPanel() {
       return;
     }
 
+    if (preflightValidation && preflightValidation.failedRows > 0 && !skipInvalidRowsConfirmed) {
+      setUploadError(
+        'Review failed rows before importing. Skip invalid rows or cancel the import.',
+      );
+      return;
+    }
+
     setIsUploading(true);
     setUploadError(null);
     setSelectedJobDetail(null);
@@ -369,6 +396,15 @@ export function CsvImportPanel() {
     } finally {
       setIsLoadingDetail(false);
     }
+  }
+
+  function handleSkipInvalidRows() {
+    setSkipInvalidRowsConfirmed(true);
+    setUploadError(null);
+  }
+
+  function handleCancelImport() {
+    handleFileSelection(null);
   }
 
   function handleUseTemplate(template: ImportMappingTemplate) {
@@ -480,8 +516,10 @@ export function CsvImportPanel() {
             mappingSuggestions={mappingSuggestions}
             missingRequiredFields={missingRequiredFields}
             mode={mode}
+            preflightValidation={preflightValidation}
             previewError={previewError}
             selectedFile={selectedFile}
+            skipInvalidRowsConfirmed={skipInvalidRowsConfirmed}
             suggestedTemplate={suggestedTemplate}
             suggestionNotice={suggestionNotice}
             templateName={templateName}
@@ -489,10 +527,12 @@ export function CsvImportPanel() {
             onColumnMappingChange={setColumnMapping}
             uploadError={uploadError}
             onApplyMappingSuggestions={handleApplyMappingSuggestions}
+            onCancelImport={handleCancelImport}
             onDragChange={setIsDragging}
             onFileSelect={handleFileSelection}
             onIgnoreTemplate={handleIgnoreTemplate}
             onSaveTemplate={handleSaveTemplate}
+            onSkipInvalidRows={handleSkipInvalidRows}
             onTemplateNameChange={setTemplateName}
             onUseTemplate={handleUseTemplate}
             onUpload={handleUpload}
@@ -524,8 +564,10 @@ type CsvUploadBoxProps = {
   mappingSuggestions: MappingSuggestion[];
   missingRequiredFields: ImportFieldDefinition[];
   mode: ImportMode;
+  preflightValidation: PreflightValidation | null;
   previewError: string | null;
   selectedFile: File | null;
+  skipInvalidRowsConfirmed: boolean;
   suggestedTemplate: ImportMappingTemplate | null;
   suggestionNotice: string | null;
   templateName: string;
@@ -533,10 +575,12 @@ type CsvUploadBoxProps = {
   uploadError: string | null;
   onColumnMappingChange: (mapping: ColumnMapping) => void;
   onApplyMappingSuggestions: () => void;
+  onCancelImport: () => void;
   onDragChange: (isDragging: boolean) => void;
   onFileSelect: (file: File | null) => void;
   onIgnoreTemplate: (template: ImportMappingTemplate) => void;
   onSaveTemplate: () => void;
+  onSkipInvalidRows: () => void;
   onTemplateNameChange: (name: string) => void;
   onUseTemplate: (template: ImportMappingTemplate) => void;
   onUpload: () => void;
@@ -553,8 +597,10 @@ function CsvUploadBox({
   mappingSuggestions,
   missingRequiredFields,
   mode,
+  preflightValidation,
   previewError,
   selectedFile,
+  skipInvalidRowsConfirmed,
   suggestedTemplate,
   suggestionNotice,
   templateName,
@@ -562,21 +608,26 @@ function CsvUploadBox({
   uploadError,
   onColumnMappingChange,
   onApplyMappingSuggestions,
+  onCancelImport,
   onDragChange,
   onFileSelect,
   onIgnoreTemplate,
   onSaveTemplate,
+  onSkipInvalidRows,
   onTemplateNameChange,
   onUseTemplate,
   onUpload,
 }: CsvUploadBoxProps) {
+  const hasUnconfirmedFailedRows =
+    (preflightValidation?.failedRows ?? 0) > 0 && !skipInvalidRowsConfirmed;
   const canImport =
     !!selectedFile &&
     !!csvPreview &&
     !isPreviewing &&
     !previewError &&
     csvPreview.detectedType !== 'INVENTORY' &&
-    missingRequiredFields.length === 0;
+    missingRequiredFields.length === 0 &&
+    !hasUnconfirmedFailedRows;
 
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
@@ -645,15 +696,19 @@ function CsvUploadBox({
           mappingSuggestions={mappingSuggestions}
           missingRequiredFields={missingRequiredFields}
           mode={mode}
+          preflightValidation={preflightValidation}
           preview={csvPreview}
+          skipInvalidRowsConfirmed={skipInvalidRowsConfirmed}
           suggestedTemplate={suggestedTemplate}
           suggestionNotice={suggestionNotice}
           templateName={templateName}
           templateNotice={templateNotice}
           onColumnMappingChange={onColumnMappingChange}
           onApplyMappingSuggestions={onApplyMappingSuggestions}
+          onCancelImport={onCancelImport}
           onIgnoreTemplate={onIgnoreTemplate}
           onSaveTemplate={onSaveTemplate}
+          onSkipInvalidRows={onSkipInvalidRows}
           onTemplateNameChange={onTemplateNameChange}
           onUseTemplate={onUseTemplate}
         />
@@ -683,15 +738,19 @@ type CsvPreviewSummaryProps = {
   mappingSuggestions: MappingSuggestion[];
   missingRequiredFields: ImportFieldDefinition[];
   mode: ImportMode;
+  preflightValidation: PreflightValidation | null;
   preview: CsvPreview;
+  skipInvalidRowsConfirmed: boolean;
   suggestedTemplate: ImportMappingTemplate | null;
   suggestionNotice: string | null;
   templateName: string;
   templateNotice: string | null;
   onColumnMappingChange: (mapping: ColumnMapping) => void;
   onApplyMappingSuggestions: () => void;
+  onCancelImport: () => void;
   onIgnoreTemplate: (template: ImportMappingTemplate) => void;
   onSaveTemplate: () => void;
+  onSkipInvalidRows: () => void;
   onTemplateNameChange: (name: string) => void;
   onUseTemplate: (template: ImportMappingTemplate) => void;
 };
@@ -702,15 +761,19 @@ function CsvPreviewSummary({
   mappingSuggestions,
   missingRequiredFields,
   mode,
+  preflightValidation,
   preview,
+  skipInvalidRowsConfirmed,
   suggestedTemplate,
   suggestionNotice,
   templateName,
   templateNotice,
   onColumnMappingChange,
   onApplyMappingSuggestions,
+  onCancelImport,
   onIgnoreTemplate,
   onSaveTemplate,
+  onSkipInvalidRows,
   onTemplateNameChange,
   onUseTemplate,
 }: CsvPreviewSummaryProps) {
@@ -786,6 +849,13 @@ function CsvPreviewSummary({
       />
 
       <MappedPreviewTable mapping={columnMapping} mode={mode} preview={preview} />
+
+      <PreflightValidationPanel
+        isSkipConfirmed={skipInvalidRowsConfirmed}
+        validation={preflightValidation}
+        onCancelImport={onCancelImport}
+        onSkipInvalidRows={onSkipInvalidRows}
+      />
     </section>
   );
 }
@@ -1132,6 +1202,151 @@ function MappedPreviewTable({ mapping, mode, preview }: MappedPreviewTableProps)
   );
 }
 
+type PreflightValidationPanelProps = {
+  isSkipConfirmed: boolean;
+  validation: PreflightValidation | null;
+  onCancelImport: () => void;
+  onSkipInvalidRows: () => void;
+};
+
+function PreflightValidationPanel({
+  isSkipConfirmed,
+  validation,
+  onCancelImport,
+  onSkipInvalidRows,
+}: PreflightValidationPanelProps) {
+  if (!validation) {
+    return null;
+  }
+
+  const visibleIssues = validation.issues.slice(0, 50);
+  const hiddenIssueCount = validation.issues.length - visibleIssues.length;
+  const hasFailedRows = validation.failedRows > 0;
+  const hasWarnings = validation.warningRows > 0;
+
+  return (
+    <section className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-medium text-slate-500">Row review</p>
+          <h4 className="mt-1 text-base font-bold text-slate-900">
+            Validate mapped rows before import
+          </h4>
+        </div>
+        <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-600">
+          {validation.rowsTotal} rows checked
+        </span>
+      </div>
+
+      <dl className="mt-4 grid grid-cols-3 gap-2">
+        <ImportMetric label="Valid" value={validation.validRows} />
+        <ImportMetric label="Warnings" value={validation.warningRows} />
+        <ImportMetric label="Failed" value={validation.failedRows} />
+      </dl>
+
+      {!hasFailedRows && !hasWarnings && (
+        <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+          All mapped rows passed preflight validation.
+        </div>
+      )}
+
+      {!hasFailedRows && hasWarnings && (
+        <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          Warning rows can still be imported. Server-side import history will keep final warning
+          details.
+        </div>
+      )}
+
+      {hasFailedRows && (
+        <div
+          className={`mt-3 rounded-md border px-3 py-2 text-sm ${
+            isSkipConfirmed
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+              : 'border-red-200 bg-red-50 text-red-700'
+          }`}
+        >
+          {isSkipConfirmed
+            ? `${validation.failedRows} failed rows approved to be skipped during import.`
+            : `${validation.failedRows} failed rows need a decision before import.`}
+        </div>
+      )}
+
+      {visibleIssues.length > 0 && (
+        <div className="mt-4 overflow-hidden rounded-md border border-slate-200 bg-white">
+          <div className="max-h-72 overflow-auto">
+            <table className="min-w-full divide-y divide-slate-200 text-left text-xs">
+              <thead className="sticky top-0 bg-slate-50">
+                <tr>
+                  <th scope="col" className="w-20 px-3 py-2 font-semibold text-slate-600">
+                    Row
+                  </th>
+                  <th scope="col" className="w-24 px-3 py-2 font-semibold text-slate-600">
+                    Status
+                  </th>
+                  <th scope="col" className="w-36 px-3 py-2 font-semibold text-slate-600">
+                    Field
+                  </th>
+                  <th scope="col" className="min-w-64 px-3 py-2 font-semibold text-slate-600">
+                    Issue
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {visibleIssues.map((issue, index) => (
+                  <tr key={`${issue.row}-${issue.column ?? 'row'}-${issue.severity}-${index}`}>
+                    <td className="px-3 py-2 font-medium text-slate-900">{issue.row}</td>
+                    <td className="px-3 py-2">
+                      <span
+                        className={`rounded-full px-2 py-0.5 font-medium ${getPreflightIssueClass(
+                          issue.severity,
+                        )}`}
+                      >
+                        {issue.severity === 'error' ? 'Failed' : 'Warning'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-slate-600">{issue.column ?? 'row'}</td>
+                    <td className="px-3 py-2 text-slate-700">{issue.message}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {hiddenIssueCount > 0 && (
+            <div className="border-t border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500">
+              Showing first 50 issues. {hiddenIssueCount} more will be preserved in import history.
+            </div>
+          )}
+        </div>
+      )}
+
+      {hasFailedRows && (
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+          <button
+            type="button"
+            disabled={isSkipConfirmed}
+            onClick={onSkipInvalidRows}
+            className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-400"
+          >
+            Skip invalid rows
+          </button>
+          <button
+            type="button"
+            onClick={onCancelImport}
+            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Cancel import
+          </button>
+          {validation.importableRows === 0 && (
+            <p className="text-sm text-slate-500 sm:self-center">
+              No valid rows will be written if you continue.
+            </p>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
 type ImportResultPanelProps = {
   data: ImportDisplayData | null;
   isLoadingDetail: boolean;
@@ -1386,6 +1601,14 @@ function getStatusClass(value: ImportStatus): string {
   }
 
   return 'bg-slate-100 text-slate-700';
+}
+
+function getPreflightIssueClass(severity: ImportIssueSeverity): string {
+  if (severity === 'error') {
+    return 'bg-red-100 text-red-700';
+  }
+
+  return 'bg-amber-100 text-amber-700';
 }
 
 function getConfidenceClass(confidence: CsvPreview['confidence']): string {
