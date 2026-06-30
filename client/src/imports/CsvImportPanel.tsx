@@ -22,6 +22,13 @@ import {
   type CsvPreviewDetectedType,
   type ImportFieldDefinition,
 } from './preview';
+import {
+  applyImportMappingTemplate,
+  findMatchingImportMappingTemplate,
+  listImportMappingTemplates,
+  saveImportMappingTemplate,
+  type ImportMappingTemplate,
+} from './templates';
 
 const MAX_CSV_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 
@@ -42,11 +49,16 @@ type ImportDisplayData = {
 };
 
 export function CsvImportPanel() {
-  const { activeBusiness, activeBusinessHeaders } = useBusinesses();
+  const { activeBusiness, activeBusinessHeaders, activeBusinessId } = useBusinesses();
   const [mode, setMode] = useState<ImportMode>('ORDERS');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [csvPreview, setCsvPreview] = useState<CsvPreview | null>(null);
   const [columnMapping, setColumnMapping] = useState<ColumnMapping>({});
+  const [mappingTemplates, setMappingTemplates] = useState<ImportMappingTemplate[]>([]);
+  const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
+  const [ignoredTemplateId, setIgnoredTemplateId] = useState<string | null>(null);
+  const [templateName, setTemplateName] = useState('');
+  const [templateNotice, setTemplateNotice] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -92,6 +104,23 @@ export function CsvImportPanel() {
     () => (csvPreview ? getMissingRequiredMappedFields(columnMapping, mode) : []),
     [columnMapping, csvPreview, mode],
   );
+
+  const suggestedTemplate = useMemo(() => {
+    if (!csvPreview) {
+      return null;
+    }
+
+    const matchingTemplate = findMatchingImportMappingTemplate(
+      mappingTemplates,
+      csvPreview.headers,
+    );
+
+    if (!matchingTemplate || matchingTemplate.id === ignoredTemplateId) {
+      return null;
+    }
+
+    return matchingTemplate;
+  }, [csvPreview, ignoredTemplateId, mappingTemplates]);
 
   useEffect(() => {
     let isActive = true;
@@ -141,8 +170,47 @@ export function CsvImportPanel() {
   }, [selectedFile]);
 
   useEffect(() => {
-    setColumnMapping(csvPreview ? createDefaultColumnMapping(csvPreview, mode) : {});
-  }, [csvPreview, mode]);
+    if (!activeBusinessId) {
+      setMappingTemplates([]);
+      setActiveTemplateId(null);
+      setIgnoredTemplateId(null);
+      setTemplateNotice(null);
+      return;
+    }
+
+    setMappingTemplates(listImportMappingTemplates(activeBusinessId, mode));
+    setActiveTemplateId(null);
+    setIgnoredTemplateId(null);
+    setTemplateNotice(null);
+  }, [activeBusinessId, mode]);
+
+  useEffect(() => {
+    if (!csvPreview) {
+      setColumnMapping({});
+      setActiveTemplateId(null);
+      setTemplateName('');
+      setTemplateNotice(null);
+      return;
+    }
+
+    const matchingTemplate = findMatchingImportMappingTemplate(
+      mappingTemplates,
+      csvPreview.headers,
+    );
+
+    if (matchingTemplate && matchingTemplate.id !== ignoredTemplateId) {
+      setColumnMapping(applyImportMappingTemplate(matchingTemplate, csvPreview));
+      setActiveTemplateId(matchingTemplate.id);
+      setTemplateName(matchingTemplate.name);
+      setTemplateNotice(`Using saved template "${matchingTemplate.name}"`);
+      return;
+    }
+
+    setColumnMapping(createDefaultColumnMapping(csvPreview, mode));
+    setActiveTemplateId(null);
+    setTemplateName(getDefaultTemplateName(mode, csvPreview.fileName));
+    setTemplateNotice(null);
+  }, [csvPreview, ignoredTemplateId, mappingTemplates, mode]);
 
   useEffect(() => {
     let isActive = true;
@@ -290,6 +358,63 @@ export function CsvImportPanel() {
     }
   }
 
+  function handleUseTemplate(template: ImportMappingTemplate) {
+    if (!csvPreview) {
+      return;
+    }
+
+    setColumnMapping(applyImportMappingTemplate(template, csvPreview));
+    setActiveTemplateId(template.id);
+    setIgnoredTemplateId(null);
+    setTemplateName(template.name);
+    setTemplateNotice(`Using saved template "${template.name}"`);
+    setUploadError(null);
+  }
+
+  function handleIgnoreTemplate(template: ImportMappingTemplate) {
+    if (!csvPreview) {
+      return;
+    }
+
+    setIgnoredTemplateId(template.id);
+    setActiveTemplateId(null);
+    setColumnMapping(createDefaultColumnMapping(csvPreview, mode));
+    setTemplateName(getDefaultTemplateName(mode, csvPreview.fileName));
+    setTemplateNotice(null);
+    setUploadError(null);
+  }
+
+  function handleSaveTemplate() {
+    if (!activeBusinessId || !csvPreview) {
+      return;
+    }
+
+    if (missingRequiredFields.length > 0) {
+      setUploadError('Map required fields before saving a template');
+      return;
+    }
+
+    const savedTemplate = saveImportMappingTemplate({
+      businessId: activeBusinessId,
+      importType: mode,
+      mappedFields: columnMapping,
+      name: templateName.trim() || getDefaultTemplateName(mode, csvPreview.fileName),
+      sourceHeaders: csvPreview.headers,
+      templateId: activeTemplateId ?? undefined,
+    });
+
+    setMappingTemplates(listImportMappingTemplates(activeBusinessId, mode));
+    setActiveTemplateId(savedTemplate.id);
+    setIgnoredTemplateId(null);
+    setTemplateName(savedTemplate.name);
+    setTemplateNotice(
+      activeTemplateId
+        ? `Updated template "${savedTemplate.name}"`
+        : `Saved template "${savedTemplate.name}"`,
+    );
+    setUploadError(null);
+  }
+
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -318,6 +443,7 @@ export function CsvImportPanel() {
       <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,0.95fr)_minmax(360px,1.05fr)]">
         <div className="space-y-6">
           <CsvUploadBox
+            activeTemplateId={activeTemplateId}
             disabled={!activeBusinessHeaders || isUploading}
             columnMapping={columnMapping}
             csvPreview={csvPreview}
@@ -328,10 +454,17 @@ export function CsvImportPanel() {
             mode={mode}
             previewError={previewError}
             selectedFile={selectedFile}
+            suggestedTemplate={suggestedTemplate}
+            templateName={templateName}
+            templateNotice={templateNotice}
             onColumnMappingChange={setColumnMapping}
             uploadError={uploadError}
             onDragChange={setIsDragging}
             onFileSelect={handleFileSelection}
+            onIgnoreTemplate={handleIgnoreTemplate}
+            onSaveTemplate={handleSaveTemplate}
+            onTemplateNameChange={setTemplateName}
+            onUseTemplate={handleUseTemplate}
             onUpload={handleUpload}
           />
 
@@ -351,6 +484,7 @@ export function CsvImportPanel() {
 }
 
 type CsvUploadBoxProps = {
+  activeTemplateId: string | null;
   disabled: boolean;
   columnMapping: ColumnMapping;
   csvPreview: CsvPreview | null;
@@ -361,14 +495,22 @@ type CsvUploadBoxProps = {
   mode: ImportMode;
   previewError: string | null;
   selectedFile: File | null;
+  suggestedTemplate: ImportMappingTemplate | null;
+  templateName: string;
+  templateNotice: string | null;
   uploadError: string | null;
   onColumnMappingChange: (mapping: ColumnMapping) => void;
   onDragChange: (isDragging: boolean) => void;
   onFileSelect: (file: File | null) => void;
+  onIgnoreTemplate: (template: ImportMappingTemplate) => void;
+  onSaveTemplate: () => void;
+  onTemplateNameChange: (name: string) => void;
+  onUseTemplate: (template: ImportMappingTemplate) => void;
   onUpload: () => void;
 };
 
 function CsvUploadBox({
+  activeTemplateId,
   disabled,
   columnMapping,
   csvPreview,
@@ -379,10 +521,17 @@ function CsvUploadBox({
   mode,
   previewError,
   selectedFile,
+  suggestedTemplate,
+  templateName,
+  templateNotice,
   uploadError,
   onColumnMappingChange,
   onDragChange,
   onFileSelect,
+  onIgnoreTemplate,
+  onSaveTemplate,
+  onTemplateNameChange,
+  onUseTemplate,
   onUpload,
 }: CsvUploadBoxProps) {
   const canImport =
@@ -455,11 +604,19 @@ function CsvUploadBox({
 
       {csvPreview && (
         <CsvPreviewSummary
+          activeTemplateId={activeTemplateId}
           columnMapping={columnMapping}
           missingRequiredFields={missingRequiredFields}
           mode={mode}
           preview={csvPreview}
+          suggestedTemplate={suggestedTemplate}
+          templateName={templateName}
+          templateNotice={templateNotice}
           onColumnMappingChange={onColumnMappingChange}
+          onIgnoreTemplate={onIgnoreTemplate}
+          onSaveTemplate={onSaveTemplate}
+          onTemplateNameChange={onTemplateNameChange}
+          onUseTemplate={onUseTemplate}
         />
       )}
 
@@ -482,19 +639,35 @@ function CsvUploadBox({
 }
 
 type CsvPreviewSummaryProps = {
+  activeTemplateId: string | null;
   columnMapping: ColumnMapping;
   missingRequiredFields: ImportFieldDefinition[];
   mode: ImportMode;
   preview: CsvPreview;
+  suggestedTemplate: ImportMappingTemplate | null;
+  templateName: string;
+  templateNotice: string | null;
   onColumnMappingChange: (mapping: ColumnMapping) => void;
+  onIgnoreTemplate: (template: ImportMappingTemplate) => void;
+  onSaveTemplate: () => void;
+  onTemplateNameChange: (name: string) => void;
+  onUseTemplate: (template: ImportMappingTemplate) => void;
 };
 
 function CsvPreviewSummary({
+  activeTemplateId,
   columnMapping,
   missingRequiredFields,
   mode,
   preview,
+  suggestedTemplate,
+  templateName,
+  templateNotice,
   onColumnMappingChange,
+  onIgnoreTemplate,
+  onSaveTemplate,
+  onTemplateNameChange,
+  onUseTemplate,
 }: CsvPreviewSummaryProps) {
   const notice = getPreviewNotice(preview.detectedType, mode);
 
@@ -541,6 +714,18 @@ function CsvPreviewSummary({
         </div>
       </div>
 
+      <ImportTemplatePanel
+        activeTemplateId={activeTemplateId}
+        missingRequiredFields={missingRequiredFields}
+        suggestedTemplate={suggestedTemplate}
+        templateName={templateName}
+        templateNotice={templateNotice}
+        onIgnoreTemplate={onIgnoreTemplate}
+        onSaveTemplate={onSaveTemplate}
+        onTemplateNameChange={onTemplateNameChange}
+        onUseTemplate={onUseTemplate}
+      />
+
       <ColumnMappingEditor
         mapping={columnMapping}
         missingRequiredFields={missingRequiredFields}
@@ -550,6 +735,112 @@ function CsvPreviewSummary({
       />
 
       <MappedPreviewTable mapping={columnMapping} mode={mode} preview={preview} />
+    </section>
+  );
+}
+
+type ImportTemplatePanelProps = {
+  activeTemplateId: string | null;
+  missingRequiredFields: ImportFieldDefinition[];
+  suggestedTemplate: ImportMappingTemplate | null;
+  templateName: string;
+  templateNotice: string | null;
+  onIgnoreTemplate: (template: ImportMappingTemplate) => void;
+  onSaveTemplate: () => void;
+  onTemplateNameChange: (name: string) => void;
+  onUseTemplate: (template: ImportMappingTemplate) => void;
+};
+
+function ImportTemplatePanel({
+  activeTemplateId,
+  missingRequiredFields,
+  suggestedTemplate,
+  templateName,
+  templateNotice,
+  onIgnoreTemplate,
+  onSaveTemplate,
+  onTemplateNameChange,
+  onUseTemplate,
+}: ImportTemplatePanelProps) {
+  const isUsingSuggestedTemplate = suggestedTemplate?.id === activeTemplateId;
+  const canSaveTemplate = templateName.trim().length > 0 && missingRequiredFields.length === 0;
+
+  return (
+    <section className="mt-5 rounded-lg border border-slate-200 bg-white p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-medium text-slate-500">Mapping template</p>
+          <h4 className="mt-1 text-base font-bold text-slate-900">
+            {activeTemplateId ? 'Saved mapping ready' : 'Save this mapping'}
+          </h4>
+        </div>
+        {suggestedTemplate && (
+          <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
+            Header match
+          </span>
+        )}
+      </div>
+
+      {suggestedTemplate && (
+        <div className="mt-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <span>
+              {isUsingSuggestedTemplate ? 'Using' : 'Found'} "{suggestedTemplate.name}" / Updated{' '}
+              {formatDate(suggestedTemplate.updatedAt)}
+            </span>
+            <div className="flex shrink-0 gap-2">
+              {!isUsingSuggestedTemplate && (
+                <button
+                  type="button"
+                  onClick={() => onUseTemplate(suggestedTemplate)}
+                  className="rounded border border-blue-200 bg-white px-2.5 py-1 text-xs font-medium text-blue-800 hover:bg-blue-100"
+                >
+                  Use
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => onIgnoreTemplate(suggestedTemplate)}
+                className="rounded border border-blue-200 bg-white px-2.5 py-1 text-xs font-medium text-blue-800 hover:bg-blue-100"
+              >
+                Ignore
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {templateNotice && (
+        <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+          {templateNotice}
+        </div>
+      )}
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+        <label className="min-w-0">
+          <span className="text-sm font-medium text-slate-700">Template name</span>
+          <input
+            type="text"
+            value={templateName}
+            onChange={(event) => onTemplateNameChange(event.target.value)}
+            className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+          />
+        </label>
+        <button
+          type="button"
+          disabled={!canSaveTemplate}
+          onClick={onSaveTemplate}
+          className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-400"
+        >
+          {activeTemplateId ? 'Update template' : 'Save template'}
+        </button>
+      </div>
+
+      {missingRequiredFields.length > 0 && (
+        <p className="mt-2 text-xs text-slate-500">
+          Complete required mappings before saving a template.
+        </p>
+      )}
     </section>
   );
 }
@@ -926,6 +1217,16 @@ function formatImportType(value: ImportType): string {
   };
 
   return labels[value];
+}
+
+function getDefaultTemplateName(mode: ImportMode, fileName: string): string {
+  const fileBaseName = fileName.replace(/\.[^.]+$/, '').trim();
+
+  if (!fileBaseName) {
+    return `${formatImportType(mode)} mapping`;
+  }
+
+  return `${formatImportType(mode)} mapping - ${fileBaseName}`;
 }
 
 function formatDetectedImportType(value: CsvPreviewDetectedType): string {
