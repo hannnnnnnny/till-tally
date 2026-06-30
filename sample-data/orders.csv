@@ -1,0 +1,13 @@
+order_number,order_date,channel,total_amount,discount_amount,customer_region
+1001,2026-06-01,Shopify,89.90,5.00,Auckland
+1002,2026-06-02,Trade Me,45.00,0.00,Wellington
+1003,2026-06-03,In-store,32.50,0.00,Auckland
+1004,2026-06-04,Shopify,28.00,0.00,Christchurch
+1005,2026-06-05,Social,54.00,6.00,Auckland
+1006,2026-06-06,Manual,76.00,0.00,Hamilton
+1007,2026-06-07,Shopify,179.80,10.00,Auckland
+1008,2026-06-08,Trade Me,22.50,0.00,Dunedin
+1009,2026-06-09,In-store,64.00,4.00,Wellington
+1010,2026-06-10,Shopify,14.00,0.00,Auckland
+1011,2026-06-11,Social,36.00,0.00,Tauranga
+1012,2026-06-12,Trade Me,152.00,8.00,Auckland

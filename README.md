@@ -100,6 +100,25 @@ npm run dev:client     # App on http://localhost:5173 (proxies /api -> 4000)
 
 Health check: <http://localhost:4000/api/health>
 
+### Optional: seed demo data
+
+After the database is running and migrations are applied, seed a demo user,
+business, products, orders, inventory snapshots and import jobs:
+
+```bash
+npm run db:seed
+```
+
+Demo login:
+
+```text
+Email: demo@tilltally.local
+Password: DemoPass123!
+```
+
+The seed is idempotent for the demo business: running it again recreates the
+same sample workspace from `sample-data/*.csv`.
+
 ### Run the whole stack in Docker
 
 Alternatively, build and run all three services (database, API, client) in
@@ -126,6 +145,7 @@ Run from the repository root:
 | `npm run dev:client` | Start the Vite dev server |
 | `npm run dev:server` | Start the API with hot reload |
 | `npm run build` | Build client and server |
+| `npm run db:seed` | Seed demo data from sample CSV files |
 | `npm run typecheck` | Type-check both workspaces |
 | `npm run lint` | Lint with ESLint |
 | `npm run format` | Format with Prettier |

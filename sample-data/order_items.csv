@@ -1,0 +1,13 @@
+order_number,sku,product_name,quantity,unit_price,total_price,cost_price
+1001,WJ-001,Women's Jacket,1,89.90,89.90,38.00
+1002,HM-002,Homeware Mug Set,2,22.50,45.00,10.00
+1003,TS-004,T-shirt,1,32.50,32.50,12.00
+1004,BN-008,Bamboo Notebook,4,7.00,28.00,4.50
+1005,SC-011,Scented Candle,3,18.00,54.00,6.75
+1006,BK-020,Canvas Backpack,1,76.00,76.00,22.00
+1007,WJ-001,Women's Jacket,2,89.90,179.80,38.00
+1008,HM-002,Homeware Mug Set,1,22.50,22.50,10.00
+1009,TS-004,T-shirt,2,32.00,64.00,12.00
+1010,BN-008,Bamboo Notebook,2,7.00,14.00,4.50
+1011,SC-011,Scented Candle,2,18.00,36.00,6.75
+1012,BK-020,Canvas Backpack,2,76.00,152.00,22.00

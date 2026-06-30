@@ -1,0 +1,13 @@
+order_number,order_date,channel,total_amount,discount_amount,customer_region,sku,quantity,unit_price,total_price,cost_price
+1001,2026-06-01,Shopify,89.90,5.00,Auckland,WJ-001,1,89.90,89.90,38.00
+1002,2026-06-02,Trade Me,45.00,0.00,Wellington,HM-002,2,22.50,45.00,10.00
+1003,2026-06-03,In-store,32.50,0.00,Auckland,TS-004,1,32.50,32.50,12.00
+1004,2026-06-04,Shopify,28.00,0.00,Christchurch,BN-008,4,7.00,28.00,4.50
+1005,2026-06-05,Social,54.00,6.00,Auckland,SC-011,3,18.00,54.00,6.75
+1006,2026-06-06,Manual,76.00,0.00,Hamilton,BK-020,1,76.00,76.00,22.00
+1007,2026-06-07,Shopify,179.80,10.00,Auckland,WJ-001,2,89.90,179.80,38.00
+1008,2026-06-08,Trade Me,22.50,0.00,Dunedin,HM-002,1,22.50,22.50,10.00
+1009,2026-06-09,In-store,64.00,4.00,Wellington,TS-004,2,32.00,64.00,12.00
+1010,2026-06-10,Shopify,14.00,0.00,Auckland,BN-008,2,7.00,14.00,4.50
+1011,2026-06-11,Social,36.00,0.00,Tauranga,SC-011,2,18.00,36.00,6.75
+1012,2026-06-12,Trade Me,152.00,8.00,Auckland,BK-020,2,76.00,152.00,22.00
