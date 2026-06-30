@@ -23,6 +23,11 @@ import {
   type ImportFieldDefinition,
 } from './preview';
 import {
+  createMappingSuggestions,
+  mergeSuggestionsIntoMapping,
+  type MappingSuggestion,
+} from './mappingSuggestions';
+import {
   applyImportMappingTemplate,
   findMatchingImportMappingTemplate,
   listImportMappingTemplates,
@@ -59,6 +64,7 @@ export function CsvImportPanel() {
   const [ignoredTemplateId, setIgnoredTemplateId] = useState<string | null>(null);
   const [templateName, setTemplateName] = useState('');
   const [templateNotice, setTemplateNotice] = useState<string | null>(null);
+  const [suggestionNotice, setSuggestionNotice] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -121,6 +127,11 @@ export function CsvImportPanel() {
 
     return matchingTemplate;
   }, [csvPreview, ignoredTemplateId, mappingTemplates]);
+
+  const mappingSuggestions = useMemo(
+    () => (csvPreview ? createMappingSuggestions(csvPreview, mode) : []),
+    [csvPreview, mode],
+  );
 
   useEffect(() => {
     let isActive = true;
@@ -190,6 +201,7 @@ export function CsvImportPanel() {
       setActiveTemplateId(null);
       setTemplateName('');
       setTemplateNotice(null);
+      setSuggestionNotice(null);
       return;
     }
 
@@ -210,6 +222,7 @@ export function CsvImportPanel() {
     setActiveTemplateId(null);
     setTemplateName(getDefaultTemplateName(mode, csvPreview.fileName));
     setTemplateNotice(null);
+    setSuggestionNotice(null);
   }, [csvPreview, ignoredTemplateId, mappingTemplates, mode]);
 
   useEffect(() => {
@@ -415,6 +428,20 @@ export function CsvImportPanel() {
     setUploadError(null);
   }
 
+  function handleApplyMappingSuggestions() {
+    if (mappingSuggestions.length === 0) {
+      return;
+    }
+
+    setColumnMapping((currentMapping) =>
+      mergeSuggestionsIntoMapping(currentMapping, mappingSuggestions),
+    );
+    setActiveTemplateId(null);
+    setTemplateNotice(null);
+    setSuggestionNotice('Suggestions applied. Review mappings before importing.');
+    setUploadError(null);
+  }
+
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -450,15 +477,18 @@ export function CsvImportPanel() {
             isDragging={isDragging}
             isPreviewing={isPreviewing}
             isUploading={isUploading}
+            mappingSuggestions={mappingSuggestions}
             missingRequiredFields={missingRequiredFields}
             mode={mode}
             previewError={previewError}
             selectedFile={selectedFile}
             suggestedTemplate={suggestedTemplate}
+            suggestionNotice={suggestionNotice}
             templateName={templateName}
             templateNotice={templateNotice}
             onColumnMappingChange={setColumnMapping}
             uploadError={uploadError}
+            onApplyMappingSuggestions={handleApplyMappingSuggestions}
             onDragChange={setIsDragging}
             onFileSelect={handleFileSelection}
             onIgnoreTemplate={handleIgnoreTemplate}
@@ -491,15 +521,18 @@ type CsvUploadBoxProps = {
   isDragging: boolean;
   isPreviewing: boolean;
   isUploading: boolean;
+  mappingSuggestions: MappingSuggestion[];
   missingRequiredFields: ImportFieldDefinition[];
   mode: ImportMode;
   previewError: string | null;
   selectedFile: File | null;
   suggestedTemplate: ImportMappingTemplate | null;
+  suggestionNotice: string | null;
   templateName: string;
   templateNotice: string | null;
   uploadError: string | null;
   onColumnMappingChange: (mapping: ColumnMapping) => void;
+  onApplyMappingSuggestions: () => void;
   onDragChange: (isDragging: boolean) => void;
   onFileSelect: (file: File | null) => void;
   onIgnoreTemplate: (template: ImportMappingTemplate) => void;
@@ -517,15 +550,18 @@ function CsvUploadBox({
   isDragging,
   isPreviewing,
   isUploading,
+  mappingSuggestions,
   missingRequiredFields,
   mode,
   previewError,
   selectedFile,
   suggestedTemplate,
+  suggestionNotice,
   templateName,
   templateNotice,
   uploadError,
   onColumnMappingChange,
+  onApplyMappingSuggestions,
   onDragChange,
   onFileSelect,
   onIgnoreTemplate,
@@ -606,13 +642,16 @@ function CsvUploadBox({
         <CsvPreviewSummary
           activeTemplateId={activeTemplateId}
           columnMapping={columnMapping}
+          mappingSuggestions={mappingSuggestions}
           missingRequiredFields={missingRequiredFields}
           mode={mode}
           preview={csvPreview}
           suggestedTemplate={suggestedTemplate}
+          suggestionNotice={suggestionNotice}
           templateName={templateName}
           templateNotice={templateNotice}
           onColumnMappingChange={onColumnMappingChange}
+          onApplyMappingSuggestions={onApplyMappingSuggestions}
           onIgnoreTemplate={onIgnoreTemplate}
           onSaveTemplate={onSaveTemplate}
           onTemplateNameChange={onTemplateNameChange}
@@ -641,13 +680,16 @@ function CsvUploadBox({
 type CsvPreviewSummaryProps = {
   activeTemplateId: string | null;
   columnMapping: ColumnMapping;
+  mappingSuggestions: MappingSuggestion[];
   missingRequiredFields: ImportFieldDefinition[];
   mode: ImportMode;
   preview: CsvPreview;
   suggestedTemplate: ImportMappingTemplate | null;
+  suggestionNotice: string | null;
   templateName: string;
   templateNotice: string | null;
   onColumnMappingChange: (mapping: ColumnMapping) => void;
+  onApplyMappingSuggestions: () => void;
   onIgnoreTemplate: (template: ImportMappingTemplate) => void;
   onSaveTemplate: () => void;
   onTemplateNameChange: (name: string) => void;
@@ -657,13 +699,16 @@ type CsvPreviewSummaryProps = {
 function CsvPreviewSummary({
   activeTemplateId,
   columnMapping,
+  mappingSuggestions,
   missingRequiredFields,
   mode,
   preview,
   suggestedTemplate,
+  suggestionNotice,
   templateName,
   templateNotice,
   onColumnMappingChange,
+  onApplyMappingSuggestions,
   onIgnoreTemplate,
   onSaveTemplate,
   onTemplateNameChange,
@@ -724,6 +769,12 @@ function CsvPreviewSummary({
         onSaveTemplate={onSaveTemplate}
         onTemplateNameChange={onTemplateNameChange}
         onUseTemplate={onUseTemplate}
+      />
+
+      <MappingSuggestionPanel
+        suggestions={mappingSuggestions}
+        suggestionNotice={suggestionNotice}
+        onApplySuggestions={onApplyMappingSuggestions}
       />
 
       <ColumnMappingEditor
@@ -840,6 +891,78 @@ function ImportTemplatePanel({
         <p className="mt-2 text-xs text-slate-500">
           Complete required mappings before saving a template.
         </p>
+      )}
+    </section>
+  );
+}
+
+type MappingSuggestionPanelProps = {
+  suggestions: MappingSuggestion[];
+  suggestionNotice: string | null;
+  onApplySuggestions: () => void;
+};
+
+function MappingSuggestionPanel({
+  suggestions,
+  suggestionNotice,
+  onApplySuggestions,
+}: MappingSuggestionPanelProps) {
+  return (
+    <section className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-medium text-slate-500">Mapping suggestions</p>
+          <h4 className="mt-1 text-base font-bold text-slate-900">
+            Header and sample-value matches
+          </h4>
+        </div>
+        <button
+          type="button"
+          disabled={suggestions.length === 0}
+          onClick={onApplySuggestions}
+          className="shrink-0 rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-400"
+        >
+          Apply suggestions
+        </button>
+      </div>
+
+      {suggestionNotice && (
+        <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+          {suggestionNotice}
+        </div>
+      )}
+
+      {suggestions.length === 0 ? (
+        <div className="mt-3 rounded-md border border-dashed border-slate-300 bg-white px-3 py-3 text-sm text-slate-600">
+          No confident suggestions found.
+        </div>
+      ) : (
+        <div className="mt-4 grid gap-2">
+          {suggestions.map((suggestion) => (
+            <div
+              key={`${suggestion.field.key}-${suggestion.sourceHeader}`}
+              className="grid gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 sm:grid-cols-[minmax(0,0.8fr)_minmax(0,1fr)_auto] sm:items-center"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-slate-900">
+                  {suggestion.field.label}
+                </p>
+                <p className="mt-0.5 truncate text-xs text-slate-500">{suggestion.field.key}</p>
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm text-slate-700">{suggestion.sourceHeader}</p>
+                <p className="mt-0.5 truncate text-xs text-slate-500">{suggestion.reason}</p>
+              </div>
+              <span
+                className={`w-fit rounded-full px-2.5 py-1 text-xs font-medium ${getSuggestionConfidenceClass(
+                  suggestion.confidence,
+                )}`}
+              >
+                {formatSuggestionConfidence(suggestion.confidence)}
+              </span>
+            </div>
+          ))}
+        </div>
       )}
     </section>
   );
@@ -1266,6 +1389,28 @@ function getStatusClass(value: ImportStatus): string {
 }
 
 function getConfidenceClass(confidence: CsvPreview['confidence']): string {
+  if (confidence === 'high') {
+    return 'bg-emerald-100 text-emerald-700';
+  }
+
+  if (confidence === 'medium') {
+    return 'bg-amber-100 text-amber-700';
+  }
+
+  return 'bg-slate-100 text-slate-700';
+}
+
+function formatSuggestionConfidence(confidence: MappingSuggestion['confidence']): string {
+  const labels: Record<MappingSuggestion['confidence'], string> = {
+    high: 'High',
+    medium: 'Medium',
+    low: 'Low',
+  };
+
+  return labels[confidence];
+}
+
+function getSuggestionConfidenceClass(confidence: MappingSuggestion['confidence']): string {
   if (confidence === 'high') {
     return 'bg-emerald-100 text-emerald-700';
   }
