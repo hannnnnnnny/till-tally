@@ -232,6 +232,11 @@ function parseCsvRows(csvText: string): string[][] {
   // Papa Parse runs in the browser (no Node Buffer dependency). It strips the
   // BOM and tolerates ragged rows; we trim each field to match prior behaviour.
   const result = Papa.parse<string[]>(trimmedCsv, { skipEmptyLines: 'greedy' });
+
+  if (result.errors.length > 0) {
+    throw new Error(result.errors[0]?.message ?? 'Invalid CSV format');
+  }
+
   const rows = result.data.map((row) => row.map((value) => value.trim()));
 
   if (rows.length === 0) {
