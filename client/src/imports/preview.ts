@@ -1,5 +1,4 @@
-import { parse as parseCsv } from 'csv-parse/sync';
-import { stringify as stringifyCsv } from 'csv-stringify/sync';
+import Papa from 'papaparse';
 import { type ImportMode, type ImportType } from './types';
 
 export type CsvPreviewConfidence = 'high' | 'medium' | 'low';
@@ -190,7 +189,7 @@ export function createMappedCsvFile(
     : mappedCsv.rows;
   const csvRows = [mappedCsv.fields.map((field) => field.key), ...rows.map((row) => row.values)];
 
-  return new File([stringifyCsv(csvRows)], preview.fileName, {
+  return new File([Papa.unparse(csvRows)], preview.fileName, {
     type: 'text/csv',
   });
 }
@@ -230,12 +229,15 @@ function parseCsvRows(csvText: string): string[][] {
     throw new Error('CSV file is empty');
   }
 
-  const rows = parseCsv(trimmedCsv, {
-    bom: true,
-    relax_column_count: true,
-    skip_empty_lines: true,
-    trim: true,
-  }) as string[][];
+  // Papa Parse runs in the browser (no Node Buffer dependency). It strips the
+  // BOM and tolerates ragged rows; we trim each field to match prior behaviour.
+  const result = Papa.parse<string[]>(trimmedCsv, { skipEmptyLines: 'greedy' });
+
+  if (result.errors.length > 0) {
+    throw new Error(result.errors[0]?.message ?? 'Invalid CSV format');
+  }
+
+  const rows = result.data.map((row) => row.map((value) => value.trim()));
 
   if (rows.length === 0) {
     throw new Error('CSV file is empty');
