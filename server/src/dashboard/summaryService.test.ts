@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   calculateDashboardSummary,
+  calculateDashboardSummaryFromMetrics,
   DashboardDateRangeError,
   parseDashboardDateRange,
 } from './summaryService';
@@ -69,6 +70,44 @@ describe('dashboard summary service', () => {
     });
   });
 
+  it('calculates KPIs from database-level summary metrics', () => {
+    const summary = calculateDashboardSummaryFromMetrics(
+      {
+        from: new Date('2026-06-01T00:00:00.000Z'),
+        to: new Date('2026-06-30T00:00:00.000Z'),
+      },
+      {
+        totalSales: '150.00',
+        orderCount: 2,
+        items: [
+          {
+            quantity: 2,
+            totalPrice: '80.00',
+            costPrice: '20.00',
+          },
+          {
+            quantity: 1,
+            totalPrice: '50.00',
+            costPrice: '25.00',
+          },
+        ],
+        lowStockItems: 2,
+        slowMovers: 2,
+      },
+    );
+
+    assert.deepEqual(summary.kpis, {
+      totalSales: 150,
+      grossProfit: 65,
+      grossMarginPct: 43.33,
+      orders: 2,
+      averageOrderValue: 75,
+      unitsSold: 3,
+      lowStockItems: 2,
+      slowMovers: 2,
+    });
+  });
+
   it('returns zero KPIs when there are no matching orders', () => {
     const summary = calculateDashboardSummary(
       {
@@ -112,5 +151,26 @@ describe('dashboard summary service', () => {
         }),
       DashboardDateRangeError,
     );
+  });
+
+  it('rejects unsupported dashboard summary query parameters', () => {
+    assert.throws(
+      () =>
+        parseDashboardDateRange({
+          interval: 'week',
+        }),
+      DashboardDateRangeError,
+    );
+  });
+
+  it('allows businessId query context while parsing date ranges', () => {
+    const range = parseDashboardDateRange({
+      businessId: 'business-1',
+      from: '2026-06-01',
+      to: '2026-06-30',
+    });
+
+    assert.equal(range.from.toISOString(), '2026-06-01T00:00:00.000Z');
+    assert.equal(range.to.toISOString(), '2026-06-30T00:00:00.000Z');
   });
 });
