@@ -2,6 +2,7 @@ import { prisma } from '../db/prisma';
 
 const DEFAULT_DASHBOARD_DAYS = 30;
 const LOW_STOCK_THRESHOLD = 5;
+const ALLOWED_DATE_RANGE_QUERY_PARAMS = new Set(['from', 'to', 'businessId']);
 
 type NumericValue = number | string | { toString(): string };
 
@@ -12,13 +13,15 @@ export type DashboardDateRange = {
   to: Date;
 };
 
+export type DashboardOrderItemForSummary = {
+  quantity: number;
+  totalPrice: NumericValue;
+  costPrice: NumericValue;
+};
+
 export type DashboardOrderForSummary = {
   totalAmount: NumericValue;
-  items: Array<{
-    quantity: number;
-    totalPrice: NumericValue;
-    costPrice: NumericValue;
-  }>;
+  items: DashboardOrderItemForSummary[];
 };
 
 export type DashboardProductForSummary = {
@@ -43,6 +46,14 @@ export type DashboardSummary = {
   };
 };
 
+export type DashboardSummaryMetrics = {
+  totalSales: NumericValue;
+  orderCount: number;
+  items: DashboardOrderItemForSummary[];
+  lowStockItems: number;
+  slowMovers: number;
+};
+
 export class DashboardDateRangeError extends Error {
   constructor(message: string) {
     super(message);
@@ -54,6 +65,8 @@ export function parseDashboardDateRange(
   query: DashboardDateRangeQuery = {},
   now = new Date(),
 ): DashboardDateRange {
+  assertSupportedDateRangeQuery(query);
+
   const rawTo = readQueryString(query, 'to');
   const to = rawTo ? parseDateOnly('to', rawTo) : startOfUtcDay(now);
   const rawFrom = readQueryString(query, 'from');
@@ -74,26 +87,33 @@ export function calculateDashboardSummary(
   orders: DashboardOrderForSummary[],
   products: DashboardProductForSummary[] = [],
 ): DashboardSummary {
-  const orderCount = orders.length;
-  let totalSales = 0;
+  return calculateDashboardSummaryFromMetrics(range, {
+    totalSales: orders.reduce((sum, order) => sum + toNumber(order.totalAmount), 0),
+    orderCount: orders.length,
+    items: orders.flatMap((order) => order.items),
+    lowStockItems: products.filter((product) => product.currentStock <= LOW_STOCK_THRESHOLD).length,
+    slowMovers: products.filter(
+      (product) => product.currentStock > 0 && (!product.lastSoldAt || product.lastSoldAt < range.from),
+    ).length,
+  });
+}
+
+export function calculateDashboardSummaryFromMetrics(
+  range: DashboardDateRange,
+  metrics: DashboardSummaryMetrics,
+): DashboardSummary {
+  const totalSales = toNumber(metrics.totalSales);
+  const orderCount = metrics.orderCount;
   let grossProfit = 0;
   let unitsSold = 0;
 
-  for (const order of orders) {
-    totalSales += toNumber(order.totalAmount);
-
-    for (const item of order.items) {
-      unitsSold += item.quantity;
-      grossProfit += toNumber(item.totalPrice) - item.quantity * toNumber(item.costPrice);
-    }
+  for (const item of metrics.items) {
+    unitsSold += item.quantity;
+    grossProfit += toNumber(item.totalPrice) - item.quantity * toNumber(item.costPrice);
   }
 
   const averageOrderValue = orderCount > 0 ? totalSales / orderCount : 0;
   const grossMarginPct = totalSales > 0 ? (grossProfit / totalSales) * 100 : 0;
-  const lowStockItems = products.filter((product) => product.currentStock <= LOW_STOCK_THRESHOLD).length;
-  const slowMovers = products.filter(
-    (product) => product.currentStock > 0 && (!product.lastSoldAt || product.lastSoldAt < range.from),
-  ).length;
 
   return {
     range: {
@@ -107,8 +127,8 @@ export function calculateDashboardSummary(
       orders: orderCount,
       averageOrderValue: roundTo(averageOrderValue, 2),
       unitsSold,
-      lowStockItems,
-      slowMovers,
+      lowStockItems: metrics.lowStockItems,
+      slowMovers: metrics.slowMovers,
     },
   };
 }
@@ -122,8 +142,8 @@ export async function getDashboardSummary(
   }
 
   const range = parseDashboardDateRange(query);
-  const [orders, products] = await Promise.all([
-    prisma.order.findMany({
+  const [orderAggregate, orderItems, lowStockItems, slowMovers] = await Promise.all([
+    prisma.order.aggregate({
       where: {
         businessId,
         orderDate: {
@@ -131,29 +151,72 @@ export async function getDashboardSummary(
           lte: range.to,
         },
       },
-      select: {
+      _count: {
+        _all: true,
+      },
+      _sum: {
         totalAmount: true,
-        items: {
-          select: {
-            quantity: true,
-            totalPrice: true,
-            costPrice: true,
+      },
+    }),
+    prisma.orderItem.findMany({
+      where: {
+        order: {
+          businessId,
+          orderDate: {
+            gte: range.from,
+            lte: range.to,
           },
         },
       },
+      select: {
+        quantity: true,
+        totalPrice: true,
+        costPrice: true,
+      },
     }),
-    prisma.product.findMany({
+    prisma.product.count({
       where: {
         businessId,
+        currentStock: {
+          lte: LOW_STOCK_THRESHOLD,
+        },
       },
-      select: {
-        currentStock: true,
-        lastSoldAt: true,
+    }),
+    prisma.product.count({
+      where: {
+        businessId,
+        currentStock: {
+          gt: 0,
+        },
+        OR: [
+          {
+            lastSoldAt: null,
+          },
+          {
+            lastSoldAt: {
+              lt: range.from,
+            },
+          },
+        ],
       },
     }),
   ]);
 
-  return calculateDashboardSummary(range, orders, products);
+  return calculateDashboardSummaryFromMetrics(range, {
+    totalSales: orderAggregate._sum.totalAmount ?? 0,
+    orderCount: orderAggregate._count._all,
+    items: orderItems,
+    lowStockItems,
+    slowMovers,
+  });
+}
+
+function assertSupportedDateRangeQuery(query: DashboardDateRangeQuery): void {
+  for (const name of Object.keys(query)) {
+    if (!ALLOWED_DATE_RANGE_QUERY_PARAMS.has(name)) {
+      throw new DashboardDateRangeError(`Unsupported query parameter "${name}"`);
+    }
+  }
 }
 
 function readQueryString(query: DashboardDateRangeQuery, name: string): string | null {
@@ -168,7 +231,7 @@ function readQueryString(query: DashboardDateRangeQuery, name: string): string |
     return trimmed || null;
   }
 
-  if (Array.isArray(value) && typeof value[0] === 'string') {
+  if (Array.isArray(value) && value.length === 1 && typeof value[0] === 'string') {
     const trimmed = value[0].trim();
     return trimmed || null;
   }
