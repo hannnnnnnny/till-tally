@@ -4,6 +4,7 @@ import {
   type DashboardDateRangeQuery,
   type DashboardSummary,
 } from './summaryService';
+import { type SalesTrendResult } from './salesTrendService';
 
 export type DashboardRouterDependencies = {
   requireAuth: RequestHandler;
@@ -12,6 +13,10 @@ export type DashboardRouterDependencies = {
     businessId: string,
     query: DashboardDateRangeQuery,
   ) => Promise<DashboardSummary>;
+  getDashboardSalesTrend: (
+    businessId: string,
+    query: DashboardDateRangeQuery,
+  ) => Promise<SalesTrendResult>;
 };
 
 type DashboardErrorCode = 'BAD_DATE_RANGE' | 'NO_BUSINESS_ACCESS';
@@ -45,6 +50,31 @@ export function createDashboardRouter(dependencies: DashboardRouterDependencies)
 
       try {
         const result = await dependencies.getDashboardSummary(req.businessId, req.query);
+
+        res.json(result);
+      } catch (error) {
+        if (error instanceof DashboardDateRangeError) {
+          sendDashboardError(res, 400, 'BAD_DATE_RANGE', error.message);
+          return;
+        }
+
+        throw error;
+      }
+    },
+  );
+
+  router.get(
+    '/sales-trend',
+    dependencies.requireAuth,
+    dependencies.requireBusinessAccess,
+    async (req, res) => {
+      if (!req.businessId) {
+        sendDashboardError(res, 403, 'NO_BUSINESS_ACCESS', 'Missing business context');
+        return;
+      }
+
+      try {
+        const result = await dependencies.getDashboardSalesTrend(req.businessId, req.query);
 
         res.json(result);
       } catch (error) {
