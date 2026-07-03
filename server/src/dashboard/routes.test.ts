@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { SalesChannel } from '@prisma/client';
 import express, { type RequestHandler } from 'express';
 import request from 'supertest';
+import { type ChannelBreakdownResult } from './channelBreakdownService';
 import { createDashboardRouter, type DashboardRouterDependencies } from './dashboardRouterFactory';
 import { type SalesTrendResult } from './salesTrendService';
 import { DashboardDateRangeError, type DashboardSummary } from './summaryService';
@@ -124,6 +126,55 @@ describe('dashboard routes', () => {
     assert.equal(body.error.code, 'BAD_DATE_RANGE');
     assert.equal(body.error.message, 'interval must be day or week');
   });
+
+  it('returns channel breakdown metrics for the active business', async () => {
+    let capturedRequest:
+      | {
+          businessId: string;
+          from: unknown;
+          to: unknown;
+        }
+      | null = null;
+
+    const app = createTestApp({
+      getDashboardChannelBreakdown: async (businessId, query) => {
+        capturedRequest = {
+          businessId,
+          from: query.from,
+          to: query.to,
+        };
+
+        return createChannelBreakdownResult();
+      },
+    });
+
+    const response = await request(app)
+      .get('/api/dashboard/channel-breakdown?from=2026-06-01&to=2026-06-30')
+      .expect(200);
+
+    assert.deepEqual(capturedRequest, {
+      businessId: 'business-1',
+      from: '2026-06-01',
+      to: '2026-06-30',
+    });
+    assert.deepEqual(response.body, createChannelBreakdownResult());
+  });
+
+  it('returns 400 for invalid channel breakdown date ranges', async () => {
+    const app = createTestApp({
+      getDashboardChannelBreakdown: async () => {
+        throw new DashboardDateRangeError('from must be before or equal to to');
+      },
+    });
+
+    const response = await request(app)
+      .get('/api/dashboard/channel-breakdown?from=2026-07-01&to=2026-06-01')
+      .expect(400);
+    const body = response.body as ErrorResponse;
+
+    assert.equal(body.error.code, 'BAD_DATE_RANGE');
+    assert.equal(body.error.message, 'from must be before or equal to to');
+  });
 });
 
 function createTestApp(overrides: Partial<DashboardRouterDependencies>): express.Express {
@@ -139,6 +190,7 @@ function createDefaultDependencies(): DashboardRouterDependencies {
   return {
     requireAuth: createAuthMiddleware(),
     requireBusinessAccess: createBusinessAccessMiddleware(),
+    getDashboardChannelBreakdown: async () => createChannelBreakdownResult(),
     getDashboardSalesTrend: async () => createSalesTrendResult(),
     getDashboardSummary: async () => createDashboardSummary(),
   };
@@ -192,6 +244,29 @@ function createSalesTrendResult(): SalesTrendResult {
         sales: 50,
         orders: 1,
         grossProfit: 25,
+      },
+    ],
+  };
+}
+
+function createChannelBreakdownResult(): ChannelBreakdownResult {
+  return {
+    channels: [
+      {
+        channel: SalesChannel.SHOPIFY,
+        revenue: 140,
+        orders: 2,
+        averageOrderValue: 70,
+        grossMarginPct: 50,
+        unitsSold: 3,
+      },
+      {
+        channel: SalesChannel.TRADE_ME,
+        revenue: 50,
+        orders: 1,
+        averageOrderValue: 50,
+        grossMarginPct: 50,
+        unitsSold: 1,
       },
     ],
   };

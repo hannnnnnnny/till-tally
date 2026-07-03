@@ -1,4 +1,5 @@
 import { type RequestHandler, type Response, Router } from 'express';
+import { type ChannelBreakdownResult } from './channelBreakdownService';
 import {
   DashboardDateRangeError,
   type DashboardDateRangeQuery,
@@ -9,6 +10,10 @@ import { type SalesTrendResult } from './salesTrendService';
 export type DashboardRouterDependencies = {
   requireAuth: RequestHandler;
   requireBusinessAccess: RequestHandler;
+  getDashboardChannelBreakdown: (
+    businessId: string,
+    query: DashboardDateRangeQuery,
+  ) => Promise<ChannelBreakdownResult>;
   getDashboardSummary: (
     businessId: string,
     query: DashboardDateRangeQuery,
@@ -75,6 +80,31 @@ export function createDashboardRouter(dependencies: DashboardRouterDependencies)
 
       try {
         const result = await dependencies.getDashboardSalesTrend(req.businessId, req.query);
+
+        res.json(result);
+      } catch (error) {
+        if (error instanceof DashboardDateRangeError) {
+          sendDashboardError(res, 400, 'BAD_DATE_RANGE', error.message);
+          return;
+        }
+
+        throw error;
+      }
+    },
+  );
+
+  router.get(
+    '/channel-breakdown',
+    dependencies.requireAuth,
+    dependencies.requireBusinessAccess,
+    async (req, res) => {
+      if (!req.businessId) {
+        sendDashboardError(res, 403, 'NO_BUSINESS_ACCESS', 'Missing business context');
+        return;
+      }
+
+      try {
+        const result = await dependencies.getDashboardChannelBreakdown(req.businessId, req.query);
 
         res.json(result);
       } catch (error) {
