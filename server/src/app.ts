@@ -4,6 +4,7 @@ import { authRouter } from './auth/routes';
 import { businessesRouter } from './businesses/routes';
 import { dashboardRouter } from './dashboard/routes';
 import { importRouter } from './imports/routes';
+import { inventoryRouter } from './inventory/routes';
 import { productsRouter } from './products/routes';
 
 const app = express();
@@ -14,6 +15,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/businesses', businessesRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api/import', importRouter);
+app.use('/api/inventory', inventoryRouter);
 app.use('/api/products', productsRouter);
 
 /** Health check — confirms the API is up. */

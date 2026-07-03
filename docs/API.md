@@ -268,16 +268,48 @@ daysOfStockLeft = currentStock / dailySalesRate
 
 ### `GET /api/inventory/insights`
 Grouped risk summary for the Inventory Insights page.
+
+Query parameters:
+- `to=YYYY-MM-DD` report date, defaults to today
+- `lowStockThreshold=5`
+- `slowMoverDays=60`
+- `deadStockDays=90`
+- `overstockDays=90`
+
 ```jsonc
 // 200 OK
 {
-  "reorderSoon": [ { "id": "uuid", "sku": "WJ-001", "name": "Women's Jacket",
-                     "currentStock": 3, "unitsSoldLast30": 24, "daysOfStockLeft": 4,
-                     "recommendation": "Reorder soon" } ],
-  "lowStock":   [ ... ],
+  "generatedAt": "2026-07-03",
+  "salesWindow": { "from": "2026-06-04", "to": "2026-07-03", "days": 30 },
+  "summary": {
+    "lowStock": 2,
+    "stockoutRisk": 1,
+    "slowMovers": 1,
+    "deadStock": 1,
+    "reorderSoon": 1,
+    "discountCandidates": 2,
+    "overstocked": 1
+  },
+  "reorderSoon": [
+    {
+      "id": "uuid",
+      "sku": "WJ-001",
+      "name": "Women's Jacket",
+      "currentStock": 3,
+      "lastSoldAt": "2026-06-24",
+      "unitsSoldLast30": 24,
+      "dailySalesRate": 0.8,
+      "daysOfStockLeft": 4,
+      "labels": ["Low Stock", "Stockout Risk", "Reorder Soon"],
+      "recommendation": "Reorder soon"
+    }
+  ],
+  "lowStock": [ ... ],
+  "stockoutRisk": [ ... ],
   "slowMovers": [ ... ],
-  "deadStock":  [ ... ],
-  "overstocked":[ ... ]
+  "deadStock": [ ... ],
+  "discountCandidates": [ ... ],
+  "overstocked": [ ... ]
 }
 ```
 
