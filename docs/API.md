@@ -240,6 +240,8 @@ Product performance table ([`TT.md`](../TT.md) §10.5). Supports `?search=`, `?c
       "category": "Women's Fashion", "vendor": "Local Supplier",
       "unitsSold": 24, "revenue": 2157.60, "cost": 912.00,
       "grossProfit": 1245.60, "grossMarginPct": 57.7,
+      "abcClass": "A", "revenueContributionPct": 78.2,
+      "cumulativeRevenuePct": 78.2,
       "currentStock": 3, "lastSoldAt": "2026-06-24",
       "labels": ["Best Seller", "High Margin", "Low Stock"]
     }
@@ -248,6 +250,8 @@ Product performance table ([`TT.md`](../TT.md) §10.5). Supports `?search=`, `?c
 }
 ```
 `labels` are computed by the analytics service from the rules in [`TT.md`](../TT.md) §21 (Best Seller, High Margin, Low Stock, Slow Mover, Dead Stock, Discount Candidate, Reorder Soon).
+
+ABC fields are computed from ranked revenue contribution per [`TT.md`](../TT.md) section 11.4: A products cover roughly the first 80% of revenue, B products the next 15%, and C products the remaining long tail.
 
 ### `GET /api/products/:id`
 Single product detail incl. recent sales and stock history. `404` if not in active business.

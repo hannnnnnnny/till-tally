@@ -64,6 +64,56 @@ describe('product performance service', () => {
     });
   });
 
+  it('classifies products by ABC revenue contribution', () => {
+    const result = calculateProductPerformance(createAbcProducts(), {
+      page: 1,
+      pageSize: 25,
+      sort: 'revenue',
+      order: 'desc',
+      search: null,
+      category: null,
+      status: null,
+      now: new Date('2026-07-03T00:00:00.000Z'),
+    });
+
+    assert.deepEqual(
+      result.data.map((product) => ({
+        id: product.id,
+        abcClass: 'abcClass' in product ? product.abcClass : undefined,
+        revenueContributionPct:
+          'revenueContributionPct' in product ? product.revenueContributionPct : undefined,
+        cumulativeRevenuePct:
+          'cumulativeRevenuePct' in product ? product.cumulativeRevenuePct : undefined,
+      })),
+      [
+        {
+          id: 'abc-product-a',
+          abcClass: 'A',
+          revenueContributionPct: 70,
+          cumulativeRevenuePct: 70,
+        },
+        {
+          id: 'abc-product-b',
+          abcClass: 'B',
+          revenueContributionPct: 20,
+          cumulativeRevenuePct: 90,
+        },
+        {
+          id: 'abc-product-c',
+          abcClass: 'C',
+          revenueContributionPct: 7,
+          cumulativeRevenuePct: 97,
+        },
+        {
+          id: 'abc-product-d',
+          abcClass: 'C',
+          revenueContributionPct: 3,
+          cumulativeRevenuePct: 100,
+        },
+      ],
+    );
+  });
+
   it('parses product performance query params', () => {
     const query = parseProductPerformanceQuery(
       {
@@ -122,6 +172,17 @@ describe('product performance service', () => {
         stockQuantity: 3,
       },
     ]);
+  });
+
+  it('builds product detail with business-wide ABC classification', () => {
+    const products = createAbcProducts();
+    const detail = buildProductDetail(products[1], new Date('2026-07-03T00:00:00.000Z'), products);
+
+    assert.equal(detail.id, 'abc-product-b');
+    assert.equal(detail.rank, 2);
+    assert.equal(detail.abcClass, 'B');
+    assert.equal(detail.revenueContributionPct, 20);
+    assert.equal(detail.cumulativeRevenuePct, 90);
   });
 });
 
@@ -188,4 +249,38 @@ function createProducts() {
       snapshots: [],
     },
   ];
+}
+
+function createAbcProducts() {
+  return [
+    createAbcProduct('abc-product-a', 'A-001', 'Anchor Product', 700),
+    createAbcProduct('abc-product-b', 'B-001', 'Middle Product', 200),
+    createAbcProduct('abc-product-c', 'C-001', 'Long Tail Product', 70),
+    createAbcProduct('abc-product-d', 'D-001', 'Tiny Product', 30),
+  ];
+}
+
+function createAbcProduct(id: string, sku: string, name: string, revenue: number) {
+  return {
+    id,
+    sku,
+    name,
+    category: 'ABC',
+    vendor: 'Vendor',
+    currentStock: 10,
+    lastSoldAt: new Date('2026-06-24T00:00:00.000Z'),
+    orderItems: [
+      {
+        quantity: 1,
+        totalPrice: revenue.toFixed(2),
+        costPrice: '0.00',
+        order: {
+          orderDate: new Date('2026-06-24T00:00:00.000Z'),
+          orderNumber: id,
+          channel: SalesChannel.SHOPIFY,
+        },
+      },
+    ],
+    snapshots: [],
+  };
 }
