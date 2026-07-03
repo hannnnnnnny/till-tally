@@ -314,10 +314,46 @@ Query parameters:
 ```
 
 ### `GET /api/inventory/low-stock`
-Flat, paginated list where `currentStock <= threshold` (`?threshold=5`).
+Flat, paginated list where `currentStock <= threshold`.
+
+Query parameters:
+- `threshold=5` alias for `lowStockThreshold`
+- `to=YYYY-MM-DD` report date
+- `page=1`
+- `pageSize=20` (max 100)
+
+```jsonc
+// 200 OK
+{
+  "generatedAt": "2026-07-03",
+  "salesWindow": { "from": "2026-06-04", "to": "2026-07-03", "days": 30 },
+  "total": 12,
+  "page": 1,
+  "pageSize": 20,
+  "items": [ ... ]
+}
+```
 
 ### `GET /api/inventory/slow-movers`
-Products with stock that haven't sold in `?days=60` (default 60; ≥ 90 ⇒ dead stock).
+Products with stock that have not sold in `?days=60` (default 60; 90+ days are treated as dead stock in the grouped insights response).
+
+Query parameters:
+- `days=60` alias for `slowMoverDays`
+- `to=YYYY-MM-DD` report date
+- `page=1`
+- `pageSize=20` (max 100)
+
+```jsonc
+// 200 OK
+{
+  "generatedAt": "2026-07-03",
+  "salesWindow": { "from": "2026-06-04", "to": "2026-07-03", "days": 30 },
+  "total": 8,
+  "page": 1,
+  "pageSize": 20,
+  "items": [ ... ]
+}
+```
 
 ---
 
