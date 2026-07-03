@@ -10,6 +10,8 @@ const LOW_STOCK_THRESHOLD = 5;
 const REORDER_SOON_UNITS_THRESHOLD = 10;
 const SLOW_MOVER_DAYS = 60;
 const DEAD_STOCK_DAYS = 90;
+const ABC_A_CUMULATIVE_REVENUE_THRESHOLD = 80;
+const ABC_B_CUMULATIVE_REVENUE_THRESHOLD = 95;
 const ALLOWED_QUERY_PARAMS = new Set([
   'businessId',
   'from',
@@ -26,6 +28,7 @@ const ALLOWED_QUERY_PARAMS = new Set([
 type NumericValue = number | string | { toString(): string };
 type ProductSort = 'revenue' | 'unitsSold' | 'grossMargin';
 type SortOrder = 'asc' | 'desc';
+type AbcClass = 'A' | 'B' | 'C';
 type ProductLabel =
   | 'Best Seller'
   | 'High Margin'
@@ -92,6 +95,9 @@ export type ProductPerformanceItem = {
   cost: number;
   grossProfit: number;
   grossMarginPct: number;
+  abcClass: AbcClass;
+  revenueContributionPct: number;
+  cumulativeRevenuePct: number;
   currentStock: number;
   lastSoldAt: string | null;
   labels: ProductLabel[];
@@ -191,8 +197,13 @@ export function calculateProductPerformance(
   };
 }
 
-export function buildProductDetail(product: ProductPerformanceSource, now = new Date()): ProductDetail {
-  const [rankedProduct] = rankProducts([product], now);
+export function buildProductDetail(
+  product: ProductPerformanceSource,
+  now = new Date(),
+  products: ProductPerformanceSource[] = [product],
+): ProductDetail {
+  const rankedProduct =
+    rankProducts(products, now).find((candidate) => candidate.id === product.id) ?? rankProducts([product], now)[0];
 
   return {
     ...toPerformanceItem(rankedProduct),
@@ -228,23 +239,24 @@ export async function getProductDetail(
   }
 
   const query = parseProductPerformanceQuery(queryInput);
-  const product = await prisma.product.findFirst({
+  const products = await prisma.product.findMany({
     where: {
-      id: productId,
       businessId,
     },
     select: createProductSelect(query, true),
   });
+  const product = products.find((candidate) => candidate.id === productId);
 
   if (!product) {
     return null;
   }
 
-  return buildProductDetail(product, query.now);
+  return buildProductDetail(product, query.now, products);
 }
 
 function rankProducts(products: ProductPerformanceSource[], now: Date): ProductMetrics[] {
   const metrics = products.map((product) => toProductMetrics(product, now));
+  const totalRevenue = metrics.reduce((total, product) => total + product.revenue, 0);
   const bestSellerIds = new Set(
     [...metrics]
       .filter((product) => product.unitsSold > 0)
@@ -253,13 +265,26 @@ function rankProducts(products: ProductPerformanceSource[], now: Date): ProductM
       .map((product) => product.id),
   );
 
+  let cumulativeRevenuePct = 0;
+
   return metrics
     .sort((first, second) => second.revenue - first.revenue || first.name.localeCompare(second.name))
-    .map((product, index) => ({
-      ...product,
-      rank: index + 1,
-      labels: withBestSellerLabel(product.labels, bestSellerIds.has(product.id)),
-    }));
+    .map((product, index) => {
+      const { rawCumulativeRevenuePct, ...abcMetrics } = calculateAbcMetrics(
+        product.revenue,
+        totalRevenue,
+        cumulativeRevenuePct,
+        index,
+      );
+      cumulativeRevenuePct = rawCumulativeRevenuePct;
+
+      return {
+        ...product,
+        rank: index + 1,
+        ...abcMetrics,
+        labels: withBestSellerLabel(product.labels, bestSellerIds.has(product.id)),
+      };
+    });
 }
 
 function toProductMetrics(product: ProductPerformanceSource, now: Date): ProductMetrics {
@@ -302,6 +327,9 @@ function toProductMetrics(product: ProductPerformanceSource, now: Date): Product
     cost: roundTo(cost, 2),
     grossProfit: roundTo(grossProfit, 2),
     grossMarginPct: roundTo(grossMarginPct, 2),
+    abcClass: 'C',
+    revenueContributionPct: 0,
+    cumulativeRevenuePct: 0,
     currentStock: product.currentStock,
     lastSoldAt: product.lastSoldAt ? formatDateOnly(product.lastSoldAt) : null,
     labels: baseLabels,
@@ -316,6 +344,46 @@ function toProductMetrics(product: ProductPerformanceSource, now: Date): Product
       .sort((first, second) => second.date.localeCompare(first.date))
       .slice(0, 30),
   };
+}
+
+function calculateAbcMetrics(
+  revenue: number,
+  totalRevenue: number,
+  previousCumulativeRevenuePct: number,
+  index: number,
+): Pick<ProductPerformanceItem, 'abcClass' | 'revenueContributionPct' | 'cumulativeRevenuePct'> & {
+  rawCumulativeRevenuePct: number;
+} {
+  if (totalRevenue <= 0) {
+    return {
+      abcClass: 'C',
+      revenueContributionPct: 0,
+      cumulativeRevenuePct: 0,
+      rawCumulativeRevenuePct: 0,
+    };
+  }
+
+  const revenueContributionPct = (revenue / totalRevenue) * 100;
+  const cumulativeRevenuePct = previousCumulativeRevenuePct + revenueContributionPct;
+
+  return {
+    abcClass: classifyAbcProduct(cumulativeRevenuePct, index),
+    revenueContributionPct: roundTo(revenueContributionPct, 2),
+    cumulativeRevenuePct: roundTo(cumulativeRevenuePct, 2),
+    rawCumulativeRevenuePct: cumulativeRevenuePct,
+  };
+}
+
+function classifyAbcProduct(cumulativeRevenuePct: number, index: number): AbcClass {
+  if (index === 0 || cumulativeRevenuePct <= ABC_A_CUMULATIVE_REVENUE_THRESHOLD) {
+    return 'A';
+  }
+
+  if (cumulativeRevenuePct <= ABC_B_CUMULATIVE_REVENUE_THRESHOLD) {
+    return 'B';
+  }
+
+  return 'C';
 }
 
 function createProductLabels(
@@ -431,6 +499,9 @@ function toPerformanceItem(product: ProductMetrics): ProductPerformanceItem {
     cost: product.cost,
     grossProfit: product.grossProfit,
     grossMarginPct: product.grossMarginPct,
+    abcClass: product.abcClass,
+    revenueContributionPct: product.revenueContributionPct,
+    cumulativeRevenuePct: product.cumulativeRevenuePct,
     currentStock: product.currentStock,
     lastSoldAt: product.lastSoldAt,
     labels: product.labels,
