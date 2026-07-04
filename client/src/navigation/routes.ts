@@ -1,4 +1,10 @@
-export type AppRouteId = 'dashboard' | 'imports' | 'products' | 'inventory' | 'workspace';
+export type AppRouteId =
+  | 'dashboard'
+  | 'channels'
+  | 'imports'
+  | 'products'
+  | 'inventory'
+  | 'workspace';
 
 export type AppNavItem = {
   id: AppRouteId;
@@ -15,6 +21,12 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
     label: 'Dashboard',
     path: '/dashboard',
     description: 'Business overview',
+  },
+  {
+    id: 'channels',
+    label: 'Channels',
+    path: '/channels',
+    description: 'Revenue and margin mix',
   },
   {
     id: 'imports',

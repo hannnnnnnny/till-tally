@@ -6,6 +6,7 @@ import { BusinessProvider } from './businesses/BusinessContext';
 import { LandingPage } from './landing/LandingPage';
 import { AppShell } from './layout/AppShell';
 import { DEFAULT_APP_PATH } from './navigation/routes';
+import { ChannelsPage } from './pages/ChannelsPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ImportsPage } from './pages/ImportsPage';
 import { InventoryPage } from './pages/InventoryPage';
@@ -28,6 +29,7 @@ export default function App() {
           }
         >
           <Route path="dashboard" element={<DashboardPage />} />
+          <Route path="channels" element={<ChannelsPage />} />
           <Route path="imports" element={<ImportsPage />} />
           <Route path="products" element={<ProductsPage />} />
           <Route path="inventory" element={<InventoryPage />} />

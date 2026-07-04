@@ -11,6 +11,7 @@ describe('app navigation routes', () => {
       })),
       [
         { path: '/dashboard', label: 'Dashboard' },
+        { path: '/channels', label: 'Channels' },
         { path: '/imports', label: 'Imports' },
         { path: '/products', label: 'Products' },
         { path: '/inventory', label: 'Inventory' },
@@ -25,6 +26,7 @@ describe('app navigation routes', () => {
 
   it('resolves page titles from route paths', () => {
     assert.equal(getRouteTitle('/dashboard'), 'Dashboard');
+    assert.equal(getRouteTitle('/channels'), 'Channels');
     assert.equal(getRouteTitle('/imports'), 'Imports');
     assert.equal(getRouteTitle('/unknown'), 'Dashboard');
   });
