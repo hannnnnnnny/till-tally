@@ -13,6 +13,7 @@ import {
   type DashboardSummary,
   type SalesTrendResult,
 } from '../dashboard/types';
+import { InlineNotice, MetricSkeletonGrid, StatePanel } from '../ui/StatePanel';
 
 type DashboardSummaryStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -116,7 +117,7 @@ export function DashboardPage() {
               type="button"
               onClick={() => setReloadKey((currentKey) => currentKey + 1)}
               disabled={status === 'loading'}
-              className="h-10 rounded-md border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+              className="h-10 w-full rounded-md border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400 sm:w-auto"
             >
               {status === 'loading' ? 'Refreshing...' : 'Refresh'}
             </button>
@@ -125,23 +126,27 @@ export function DashboardPage() {
 
         {businessStatus === 'loading' && <DashboardKpiSkeleton />}
 
-        {businessStatus !== 'loading' && !activeBusinessHeaders && <EmptyDashboardState />}
+        {businessStatus !== 'loading' && !activeBusinessHeaders && (
+          <StatePanel
+            className="mt-6"
+            minHeight="sm"
+            message="Create or select a business to view dashboard KPIs."
+          />
+        )}
 
         {businessStatus !== 'loading' && status === 'loading' && <DashboardKpiSkeleton />}
 
         {businessStatus !== 'loading' && status === 'error' && (
-          <div className="mt-6 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p>{error ?? 'Unable to load dashboard KPIs'}</p>
-              <button
-                type="button"
-                onClick={() => setReloadKey((currentKey) => currentKey + 1)}
-                className="w-fit rounded-md border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50"
-              >
-                Retry
-              </button>
-            </div>
-          </div>
+          <InlineNotice
+            tone="error"
+            className="mt-6"
+            action={{
+              label: 'Retry',
+              onClick: () => setReloadKey((currentKey) => currentKey + 1),
+            }}
+          >
+            {error ?? 'Unable to load dashboard KPIs'}
+          </InlineNotice>
         )}
 
         {businessStatus !== 'loading' && status === 'ready' && (
@@ -207,18 +212,17 @@ function DashboardChartState({
 
   if (status === 'error') {
     return (
-      <div className="mt-5 flex h-72 items-center justify-center rounded-md border border-red-200 bg-red-50 px-4 text-center text-sm text-red-700">
-        {error ?? 'Unable to load dashboard charts'}
-      </div>
+      <StatePanel
+        tone="error"
+        className="mt-5"
+        minHeight="lg"
+        message={error ?? 'Unable to load dashboard charts'}
+      />
     );
   }
 
   if (status !== 'ready') {
-    return (
-      <div className="mt-5 flex h-72 items-center justify-center rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 text-center text-sm text-slate-600">
-        {emptyMessage}
-      </div>
-    );
+    return <StatePanel className="mt-5" minHeight="lg" message={emptyMessage} />;
   }
 
   return children;
@@ -245,29 +249,10 @@ function KpiCard({ card }: { card: DashboardKpiCard }) {
 
 function DashboardKpiSkeleton() {
   return (
-    <dl
-      className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-      aria-label="Loading dashboard KPIs"
-    >
-      {Array.from({ length: 7 }, (_, index) => (
-        <div
-          key={index}
-          className="h-32 animate-pulse rounded-md border border-slate-200 bg-slate-50 p-4"
-        >
-          <div className="h-4 w-24 rounded bg-slate-200" />
-          <div className="mt-4 h-7 w-32 rounded bg-slate-200" />
-          <div className="mt-3 h-3 w-28 rounded bg-slate-200" />
-        </div>
-      ))}
-    </dl>
-  );
-}
-
-function EmptyDashboardState() {
-  return (
-    <div className="mt-6 rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-600">
-      Create or select a business to view dashboard KPIs.
-    </div>
+    <MetricSkeletonGrid
+      count={7}
+      gridClassName="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+    />
   );
 }
 

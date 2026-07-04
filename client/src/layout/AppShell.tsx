@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { useBusinesses } from '../businesses/BusinessContext';
 import { APP_NAV_ITEMS, getRouteTitle } from '../navigation/routes';
+import { InlineNotice } from '../ui/StatePanel';
 
 export function AppShell() {
   const location = useLocation();
@@ -67,7 +68,7 @@ export function AppShell() {
 
       <div className="min-w-0">
         <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
-          <div className="flex min-h-16 flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+          <div className="flex min-h-16 flex-col gap-3 px-3 py-3 min-[375px]:px-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
             <div className="flex min-w-0 items-center gap-3">
               <img src="/favicon.svg" alt="" className="h-9 w-9 rounded-xl lg:hidden" />
               <div className="min-w-0">
@@ -78,13 +79,13 @@ export function AppShell() {
               </div>
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-end">
               <BusinessSelector />
               <button
                 type="button"
                 onClick={handleSignOut}
                 disabled={isSigningOut}
-                className="h-10 rounded-md border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                className="h-10 w-full rounded-md border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400 sm:w-auto"
               >
                 {isSigningOut ? 'Signing out...' : 'Sign out'}
               </button>
@@ -112,19 +113,22 @@ export function AppShell() {
 
         {!activeBusiness && businesses.length === 0 && (
           <section className="border-b border-slate-200 bg-white px-4 py-4 sm:px-6 lg:px-8">
-            <div className="mx-auto max-w-7xl rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            <InlineNotice tone="warning" className="mx-auto max-w-7xl">
               Create a business to unlock workspace data.
-            </div>
+            </InlineNotice>
           </section>
         )}
 
-        <main id="main-content" className="mx-auto max-w-7xl px-4 py-6 pb-28 sm:px-6 lg:px-8">
+        <main
+          id="main-content"
+          className="mx-auto max-w-7xl px-3 py-5 pb-28 min-[375px]:px-4 sm:px-6 sm:py-6 lg:px-8"
+        >
           <Outlet />
         </main>
       </div>
 
       <nav
-        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-3 gap-1 border-t border-slate-200 bg-white px-2 py-2 shadow-lg sm:grid-cols-6 lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-3 gap-1 border-t border-slate-200 bg-white px-1.5 py-2 shadow-lg min-[375px]:px-2 sm:grid-cols-6 lg:hidden"
         aria-label="Primary"
       >
         {APP_NAV_ITEMS.map((item) => (
@@ -153,7 +157,7 @@ function BusinessSelector() {
   }
 
   return (
-    <div className="min-w-0 sm:w-64">
+    <div className="w-full min-w-0 sm:w-64">
       <label htmlFor="active-business" className="block text-sm font-medium text-slate-700">
         Active business
       </label>

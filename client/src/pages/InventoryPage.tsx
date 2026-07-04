@@ -14,6 +14,7 @@ import {
   type InventoryRiskGroup,
 } from '../inventory/insights';
 import { type InventoryInsights, type InventoryRiskItem } from '../inventory/types';
+import { InlineNotice, StatePanel } from '../ui/StatePanel';
 
 type InventoryPageStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -22,6 +23,7 @@ export function InventoryPage() {
   const [insights, setInsights] = useState<InventoryInsights | null>(null);
   const [loadStatus, setLoadStatus] = useState<InventoryPageStatus>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!activeBusinessHeaders) {
@@ -67,7 +69,7 @@ export function InventoryPage() {
     return () => {
       controller.abort();
     };
-  }, [activeBusinessHeaders]);
+  }, [activeBusinessHeaders, reloadKey]);
 
   const isLoading = businessStatus === 'loading' || loadStatus === 'loading';
   const summaryCards = useMemo(
@@ -88,7 +90,7 @@ export function InventoryPage() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-sm font-medium text-slate-500">Inventory</p>
@@ -109,15 +111,23 @@ export function InventoryPage() {
         </div>
 
         {businessStatus !== 'loading' && !activeBusinessHeaders && (
-          <div className="mt-6 rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
-            Create or select a business to view inventory insights.
-          </div>
+          <StatePanel
+            className="mt-6"
+            message="Create or select a business to view inventory insights."
+          />
         )}
 
         {activeBusinessHeaders && loadStatus === 'error' && (
-          <div className="mt-6 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <InlineNotice
+            tone="error"
+            className="mt-6"
+            action={{
+              label: 'Retry',
+              onClick: () => setReloadKey((currentKey) => currentKey + 1),
+            }}
+          >
             {error ?? 'Unable to load inventory insights'}
-          </div>
+          </InlineNotice>
         )}
 
         {activeBusinessHeaders && (
@@ -138,7 +148,7 @@ export function InventoryPage() {
       </section>
 
       {activeBusinessHeaders && (
-        <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+        <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-sm font-medium text-slate-500">Products</p>
@@ -166,9 +176,11 @@ export function InventoryPage() {
             )}
 
             {!isLoading && insights && !hasAnyRiskItems && (
-              <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
-                No inventory risk detected for the current business.
-              </div>
+              <StatePanel
+                minHeight="sm"
+                tone="success"
+                message="No inventory risk detected for the current business."
+              />
             )}
           </div>
         </section>
@@ -203,9 +215,7 @@ function InventoryRiskSection({
           ))}
         </div>
       ) : (
-        <div className="mt-4 rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">
-          No products in this group.
-        </div>
+        <StatePanel className="mt-4" minHeight="sm" message="No products in this group." />
       )}
     </section>
   );

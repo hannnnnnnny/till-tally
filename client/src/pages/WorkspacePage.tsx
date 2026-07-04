@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthContext';
 import { createBusiness } from '../businesses/api';
 import { useBusinesses } from '../businesses/BusinessContext';
 import { type BusinessFormValues, type SalesChannel } from '../businesses/types';
+import { InlineNotice, StatePanel } from '../ui/StatePanel';
 
 const CHANNEL_OPTIONS: Array<{ value: SalesChannel; label: string }> = [
   { value: 'SHOPIFY', label: 'Shopify' },
@@ -77,22 +78,22 @@ function BusinessSetupForm() {
   }
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
       <div>
         <p className="text-sm font-medium text-slate-500">Workspace setup</p>
         <h2 className="mt-1 text-2xl font-bold text-slate-900">Create a business</h2>
       </div>
 
       {submitError && (
-        <div className="mt-5 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <InlineNotice tone="error" className="mt-5">
           {submitError}
-        </div>
+        </InlineNotice>
       )}
 
       {successMessage && (
-        <div className="mt-5 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+        <InlineNotice tone="success" className="mt-5">
           {successMessage}
-        </div>
+        </InlineNotice>
       )}
 
       <form className="mt-6 space-y-5" onSubmit={handleSubmit(onSubmit)}>
@@ -206,28 +207,29 @@ function BusinessList() {
   const isLoadingBusinesses = businessStatus === 'loading';
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
       <div>
         <p className="text-sm font-medium text-slate-500">Workspaces</p>
         <h2 className="mt-1 text-2xl font-bold text-slate-900">Your businesses</h2>
       </div>
 
       {isLoadingBusinesses && (
-        <div className="mt-6 rounded-md border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-600">
-          Loading businesses...
-        </div>
+        <StatePanel
+          tone="loading"
+          className="mt-6"
+          minHeight="sm"
+          message="Loading businesses..."
+        />
       )}
 
       {businessError && (
-        <div className="mt-6 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <InlineNotice tone="error" className="mt-6">
           {businessError}
-        </div>
+        </InlineNotice>
       )}
 
       {!isLoadingBusinesses && !businessError && businesses.length === 0 && (
-        <div className="mt-6 rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-600">
-          No businesses yet.
-        </div>
+        <StatePanel className="mt-6" minHeight="sm" message="No businesses yet." />
       )}
 
       {businesses.length > 0 && (

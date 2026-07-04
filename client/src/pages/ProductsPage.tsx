@@ -17,6 +17,7 @@ import {
   type ProductPerformanceSort,
   type ProductSortOrder,
 } from '../products/types';
+import { InlineNotice, StatePanel } from '../ui/StatePanel';
 
 const PRODUCT_COLUMNS = ['Product', 'Revenue', 'Margin', 'Units', 'ABC', 'Status'];
 const PRODUCT_PAGE_SIZE = 25;
@@ -41,6 +42,7 @@ export function ProductsPage() {
   const [result, setResult] = useState<ProductPerformanceResult | null>(null);
   const [loadStatus, setLoadStatus] = useState<ProductPerformanceStatus>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   const query = useMemo<ProductPerformanceQuery>(
     () => ({
@@ -93,7 +95,7 @@ export function ProductsPage() {
     return () => {
       controller.abort();
     };
-  }, [activeBusinessHeaders, query]);
+  }, [activeBusinessHeaders, query, reloadKey]);
 
   const products = result?.data ?? [];
   const meta = result?.meta ?? null;
@@ -130,7 +132,7 @@ export function ProductsPage() {
   }
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <p className="text-sm font-medium text-slate-500">Products</p>
@@ -207,17 +209,25 @@ export function ProductsPage() {
       </div>
 
       {businessStatus !== 'loading' && !activeBusinessHeaders && (
-        <div className="mt-6 rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
-          Create or select a business to view product performance.
-        </div>
+        <StatePanel
+          className="mt-6"
+          message="Create or select a business to view product performance."
+        />
       )}
 
       {activeBusinessHeaders && (
         <>
           {loadStatus === 'error' && (
-            <div className="mt-6 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <InlineNotice
+              tone="error"
+              className="mt-6"
+              action={{
+                label: 'Retry',
+                onClick: () => setReloadKey((currentKey) => currentKey + 1),
+              }}
+            >
               {error ?? 'Unable to load products'}
-            </div>
+            </InlineNotice>
           )}
 
           <div className="mt-6 overflow-hidden rounded-md border border-slate-200">
@@ -245,11 +255,12 @@ export function ProductsPage() {
 
                   {!isLoading && !hasProducts && (
                     <tr>
-                      <td
-                        colSpan={PRODUCT_COLUMNS.length}
-                        className="px-4 py-10 text-center text-slate-500"
-                      >
-                        No products match the current filters.
+                      <td colSpan={PRODUCT_COLUMNS.length} className="px-4 py-6">
+                        <StatePanel
+                          className="border-0 bg-transparent py-6"
+                          minHeight="sm"
+                          message="No products match the current filters."
+                        />
                       </td>
                     </tr>
                   )}
@@ -264,7 +275,7 @@ export function ProductsPage() {
                 ? `${meta.total} products - Page ${meta.page} of ${Math.max(meta.totalPages, 1)}`
                 : 'Loading products'}
             </p>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-2 gap-2 sm:flex">
               <button
                 type="button"
                 onClick={() => setPage((currentPage) => Math.max(currentPage - 1, 1))}
