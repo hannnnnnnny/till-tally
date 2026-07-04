@@ -118,13 +118,13 @@ export function AppShell() {
           </section>
         )}
 
-        <main id="main-content" className="mx-auto max-w-7xl px-4 py-6 pb-24 sm:px-6 lg:px-8">
+        <main id="main-content" className="mx-auto max-w-7xl px-4 py-6 pb-28 sm:px-6 lg:px-8">
           <Outlet />
         </main>
       </div>
 
       <nav
-        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-slate-200 bg-white px-2 py-2 shadow-lg lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-3 gap-1 border-t border-slate-200 bg-white px-2 py-2 shadow-lg sm:grid-cols-6 lg:hidden"
         aria-label="Primary"
       >
         {APP_NAV_ITEMS.map((item) => (
