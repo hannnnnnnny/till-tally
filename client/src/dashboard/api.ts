@@ -1,10 +1,10 @@
-import { type DashboardSummary } from './types';
+import { type ChannelBreakdownResult, type DashboardSummary, type SalesTrendResult } from './types';
 
 type ApiErrorBody = {
   error?: string | { message?: string };
 };
 
-type DashboardSummaryOptions = {
+type DashboardRequestOptions = {
   signal?: AbortSignal;
 };
 
@@ -32,7 +32,7 @@ async function readJson<T>(response: Response): Promise<T> {
 
 export async function fetchDashboardSummary(
   businessHeaders: HeadersInit,
-  options: DashboardSummaryOptions = {},
+  options: DashboardRequestOptions = {},
 ): Promise<DashboardSummary> {
   const response = await fetch('/api/dashboard/summary', {
     headers: businessHeaders,
@@ -40,4 +40,28 @@ export async function fetchDashboardSummary(
   });
 
   return readJson<DashboardSummary>(response);
+}
+
+export async function fetchDashboardSalesTrend(
+  businessHeaders: HeadersInit,
+  options: DashboardRequestOptions = {},
+): Promise<SalesTrendResult> {
+  const response = await fetch('/api/dashboard/sales-trend', {
+    headers: businessHeaders,
+    signal: options.signal,
+  });
+
+  return readJson<SalesTrendResult>(response);
+}
+
+export async function fetchDashboardChannelBreakdown(
+  businessHeaders: HeadersInit,
+  options: DashboardRequestOptions = {},
+): Promise<ChannelBreakdownResult> {
+  const response = await fetch('/api/dashboard/channel-breakdown', {
+    headers: businessHeaders,
+    signal: options.signal,
+  });
+
+  return readJson<ChannelBreakdownResult>(response);
 }
