@@ -27,6 +27,7 @@ const CHANNEL_COLORS: Record<DashboardSalesChannel, string> = {
 const compactCurrencyFormatter = new Intl.NumberFormat('en-NZ', {
   currency: 'NZD',
   maximumFractionDigits: 1,
+  minimumFractionDigits: 0,
   notation: 'compact',
   style: 'currency',
 });
