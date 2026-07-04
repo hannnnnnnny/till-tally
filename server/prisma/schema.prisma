@@ -61,6 +61,7 @@ model Business {
   products   Product[]
   orders     Order[]
   importJobs ImportJob[]
+  reports    WeeklyReport[]
   createdAt  DateTime         @default(now()) @map("created_at")
   updatedAt  DateTime         @updatedAt @map("updated_at")
 
@@ -174,4 +175,21 @@ model ImportJob {
 
   @@index([businessId, createdAt(sort: Desc)])
   @@map("import_jobs")
+}
+
+model WeeklyReport {
+  id                 String   @id @default(uuid())
+  businessId         String   @map("business_id")
+  business           Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  weekStart          DateTime @map("week_start") @db.Date
+  weekEnd            DateTime @map("week_end") @db.Date
+  summary            String
+  salesChangePercent Decimal? @map("sales_change_percent") @db.Decimal(6, 2)
+  topCategory        String?  @map("top_category") @db.VarChar(80)
+  lowStockCount      Int      @default(0) @map("low_stock_count")
+  slowMoverCount     Int      @default(0) @map("slow_mover_count")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  @@unique([businessId, weekStart])
+  @@map("weekly_reports")
 }
