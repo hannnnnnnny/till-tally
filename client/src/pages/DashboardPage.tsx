@@ -1,25 +1,49 @@
-import { useEffect, useMemo, useState } from 'react';
+import { type ReactNode, Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { useBusinesses } from '../businesses/BusinessContext';
-import { fetchDashboardSummary } from '../dashboard/api';
+import {
+  fetchDashboardChannelBreakdown,
+  fetchDashboardSalesTrend,
+  fetchDashboardSummary,
+} from '../dashboard/api';
 import { buildDashboardKpiCards, formatDashboardRange } from '../dashboard/summary';
 import {
+  type ChannelBreakdownResult,
   type DashboardKpiCard,
   type DashboardKpiTone,
   type DashboardSummary,
+  type SalesTrendResult,
 } from '../dashboard/types';
 
 type DashboardSummaryStatus = 'idle' | 'loading' | 'ready' | 'error';
 
+type DashboardData = {
+  channelBreakdown: ChannelBreakdownResult;
+  salesTrend: SalesTrendResult;
+  summary: DashboardSummary;
+};
+
+const SalesTrendChart = lazy(() =>
+  import('../dashboard/DashboardCharts').then((module) => ({
+    default: module.SalesTrendChart,
+  })),
+);
+
+const ChannelPieChart = lazy(() =>
+  import('../dashboard/DashboardCharts').then((module) => ({
+    default: module.ChannelPieChart,
+  })),
+);
+
 export function DashboardPage() {
   const { activeBusiness, activeBusinessHeaders, status: businessStatus } = useBusinesses();
-  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [status, setStatus] = useState<DashboardSummaryStatus>('idle');
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!activeBusinessHeaders) {
-      setSummary(null);
+      setDashboardData(null);
       setError(null);
       setStatus('idle');
       return;
@@ -33,19 +57,31 @@ export function DashboardPage() {
       setError(null);
 
       try {
-        const nextSummary = await fetchDashboardSummary(requestHeaders, {
-          signal: controller.signal,
-        });
+        const [summary, salesTrend, channelBreakdown] = await Promise.all([
+          fetchDashboardSummary(requestHeaders, {
+            signal: controller.signal,
+          }),
+          fetchDashboardSalesTrend(requestHeaders, {
+            signal: controller.signal,
+          }),
+          fetchDashboardChannelBreakdown(requestHeaders, {
+            signal: controller.signal,
+          }),
+        ]);
 
-        setSummary(nextSummary);
+        setDashboardData({
+          channelBreakdown,
+          salesTrend,
+          summary,
+        });
         setStatus('ready');
       } catch (loadError) {
         if (isAbortError(loadError)) {
           return;
         }
 
-        setSummary(null);
-        setError(loadError instanceof Error ? loadError.message : 'Unable to load dashboard KPIs');
+        setDashboardData(null);
+        setError(loadError instanceof Error ? loadError.message : 'Unable to load dashboard');
         setStatus('error');
       }
     }
@@ -57,8 +93,11 @@ export function DashboardPage() {
     };
   }, [activeBusinessHeaders, reloadKey]);
 
-  const cards = useMemo(() => (summary ? buildDashboardKpiCards(summary) : []), [summary]);
-  const rangeLabel = summary ? formatDashboardRange(summary) : 'Last 30 days';
+  const cards = useMemo(
+    () => (dashboardData ? buildDashboardKpiCards(dashboardData.summary) : []),
+    [dashboardData],
+  );
+  const rangeLabel = dashboardData ? formatDashboardRange(dashboardData.summary) : 'Last 30 days';
 
   return (
     <div className="space-y-6">
@@ -117,15 +156,80 @@ export function DashboardPage() {
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
         <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
           <p className="text-sm font-medium text-slate-500">Sales trend</p>
-          <div className="mt-5 h-72 rounded-md border border-dashed border-slate-300 bg-slate-50" />
+          <h3 className="mt-1 text-lg font-bold text-slate-950">Sales and gross profit</h3>
+          <DashboardChartState
+            businessStatus={businessStatus}
+            status={status}
+            error={error}
+            emptyMessage="Create or select a business to view sales trends."
+          >
+            <Suspense fallback={<DashboardChartSkeleton />}>
+              {dashboardData && <SalesTrendChart data={dashboardData.salesTrend} />}
+            </Suspense>
+          </DashboardChartState>
         </div>
 
         <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
           <p className="text-sm font-medium text-slate-500">Channel mix</p>
-          <div className="mt-5 h-72 rounded-md border border-dashed border-slate-300 bg-slate-50" />
+          <h3 className="mt-1 text-lg font-bold text-slate-950">Revenue by channel</h3>
+          <DashboardChartState
+            businessStatus={businessStatus}
+            status={status}
+            error={error}
+            emptyMessage="Create or select a business to view channel revenue."
+          >
+            <Suspense fallback={<DashboardChartSkeleton />}>
+              {dashboardData && <ChannelPieChart data={dashboardData.channelBreakdown} />}
+            </Suspense>
+          </DashboardChartState>
         </div>
       </section>
     </div>
+  );
+}
+
+function DashboardChartState({
+  businessStatus,
+  children,
+  emptyMessage,
+  error,
+  status,
+}: {
+  businessStatus: ReturnType<typeof useBusinesses>['status'];
+  children: ReactNode;
+  emptyMessage: string;
+  error: string | null;
+  status: DashboardSummaryStatus;
+}) {
+  if (businessStatus === 'loading' || status === 'loading') {
+    return <DashboardChartSkeleton />;
+  }
+
+  if (status === 'error') {
+    return (
+      <div className="mt-5 flex h-72 items-center justify-center rounded-md border border-red-200 bg-red-50 px-4 text-center text-sm text-red-700">
+        {error ?? 'Unable to load dashboard charts'}
+      </div>
+    );
+  }
+
+  if (status !== 'ready') {
+    return (
+      <div className="mt-5 flex h-72 items-center justify-center rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 text-center text-sm text-slate-600">
+        {emptyMessage}
+      </div>
+    );
+  }
+
+  return children;
+}
+
+function DashboardChartSkeleton() {
+  return (
+    <div
+      className="mt-5 h-72 animate-pulse rounded-md border border-slate-200 bg-slate-50"
+      aria-label="Loading dashboard chart"
+    />
   );
 }
 
