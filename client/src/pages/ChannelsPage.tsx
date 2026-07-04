@@ -11,6 +11,7 @@ import {
 } from '../channels/analysis';
 import { fetchDashboardChannelBreakdown } from '../dashboard/api';
 import { type ChannelBreakdownResult } from '../dashboard/types';
+import { InlineNotice, MetricSkeletonGrid, StatePanel } from '../ui/StatePanel';
 
 type ChannelAnalysisStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -97,7 +98,7 @@ export function ChannelsPage() {
               type="button"
               onClick={() => setReloadKey((currentKey) => currentKey + 1)}
               disabled={isLoading}
-              className="h-10 rounded-md border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+              className="h-10 w-full rounded-md border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400 sm:w-auto"
             >
               {isLoading ? 'Refreshing...' : 'Refresh'}
             </button>
@@ -105,24 +106,23 @@ export function ChannelsPage() {
         </div>
 
         {businessStatus !== 'loading' && !activeBusinessHeaders && (
-          <div className="mt-6 rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
-            Create or select a business to view channel analysis.
-          </div>
+          <StatePanel
+            className="mt-6"
+            message="Create or select a business to view channel analysis."
+          />
         )}
 
         {activeBusinessHeaders && status === 'error' && (
-          <div className="mt-6 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p>{error ?? 'Unable to load channels'}</p>
-              <button
-                type="button"
-                onClick={() => setReloadKey((currentKey) => currentKey + 1)}
-                className="w-fit rounded-md border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50"
-              >
-                Retry
-              </button>
-            </div>
-          </div>
+          <InlineNotice
+            tone="error"
+            className="mt-6"
+            action={{
+              label: 'Retry',
+              onClick: () => setReloadKey((currentKey) => currentKey + 1),
+            }}
+          >
+            {error ?? 'Unable to load channels'}
+          </InlineNotice>
         )}
 
         {activeBusinessHeaders && (
@@ -306,11 +306,15 @@ function ChannelChartState({
   }
 
   if (status === 'error') {
-    return <ChannelStateMessage tone="error" message={error ?? 'Unable to load channel chart'} />;
+    return (
+      <StatePanel tone="error" className="mt-5" message={error ?? 'Unable to load channel chart'} />
+    );
   }
 
   if (!hasChannels) {
-    return <ChannelStateMessage message="No channel revenue found for this business yet." />;
+    return (
+      <StatePanel className="mt-5" message="No channel revenue found for this business yet." />
+    );
   }
 
   return children;
@@ -334,11 +338,13 @@ function ChannelLeaderboardState({
   }
 
   if (status === 'error') {
-    return <ChannelStateMessage tone="error" message={error ?? 'Unable to load channels'} />;
+    return (
+      <StatePanel tone="error" className="mt-5" message={error ?? 'Unable to load channels'} />
+    );
   }
 
   if (!hasChannels) {
-    return <ChannelStateMessage message="No channel rows to compare yet." />;
+    return <StatePanel className="mt-5" message="No channel rows to compare yet." />;
   }
 
   return children;
@@ -362,52 +368,20 @@ function ChannelTableState({
   }
 
   if (status === 'error') {
-    return <ChannelStateMessage tone="error" message={error ?? 'Unable to load channel table'} />;
+    return (
+      <StatePanel tone="error" className="mt-5" message={error ?? 'Unable to load channel table'} />
+    );
   }
 
   if (!hasChannels) {
-    return <ChannelStateMessage message="No channel performance data available yet." />;
+    return <StatePanel className="mt-5" message="No channel performance data available yet." />;
   }
 
   return children;
 }
 
-function ChannelStateMessage({
-  message,
-  tone = 'empty',
-}: {
-  message: string;
-  tone?: 'empty' | 'error';
-}) {
-  const className =
-    tone === 'error'
-      ? 'border-red-200 bg-red-50 text-red-700'
-      : 'border-slate-300 bg-slate-50 text-slate-600';
-
-  return (
-    <div
-      className={`mt-5 flex min-h-48 items-center justify-center rounded-md border border-dashed px-4 text-center text-sm ${className}`}
-    >
-      {message}
-    </div>
-  );
-}
-
 function ChannelMetricSkeleton() {
-  return (
-    <>
-      {Array.from({ length: 5 }, (_, index) => (
-        <div
-          key={index}
-          className="h-32 animate-pulse rounded-md border border-slate-200 bg-slate-50 p-4"
-        >
-          <div className="h-4 w-24 rounded bg-slate-200" />
-          <div className="mt-4 h-7 w-32 rounded bg-slate-200" />
-          <div className="mt-3 h-3 w-28 rounded bg-slate-200" />
-        </div>
-      ))}
-    </>
-  );
+  return <MetricSkeletonGrid count={5} gridClassName="contents" />;
 }
 
 function ChannelChartSkeleton() {

@@ -36,6 +36,7 @@ import {
   type ImportMappingTemplate,
 } from './templates';
 import { validateMappedCsvRows, type PreflightValidation } from './rowValidation';
+import { InlineNotice, StatePanel } from '../ui/StatePanel';
 
 const MAX_CSV_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 
@@ -479,7 +480,7 @@ export function CsvImportPanel() {
   }
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-sm font-medium text-slate-500">Data import</p>
@@ -487,7 +488,7 @@ export function CsvImportPanel() {
           {activeBusiness && <p className="mt-1 text-sm text-slate-600">{activeBusiness.name}</p>}
         </div>
 
-        <div className="grid grid-cols-2 rounded-md bg-slate-100 p-1 sm:w-56">
+        <div className="grid w-full grid-cols-2 rounded-md bg-slate-100 p-1 sm:w-56">
           {IMPORT_MODES.map((option) => (
             <button
               key={option.value}
@@ -502,6 +503,12 @@ export function CsvImportPanel() {
           ))}
         </div>
       </div>
+
+      {!activeBusinessHeaders && (
+        <InlineNotice tone="warning" className="mt-5">
+          Create or select a business before importing CSV data.
+        </InlineNotice>
+      )}
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,0.95fr)_minmax(360px,1.05fr)]">
         <div className="space-y-6">
@@ -678,15 +685,15 @@ function CsvUploadBox({
       )}
 
       {isPreviewing && (
-        <div className="mt-3 rounded-md border border-slate-200 bg-white px-3 py-3 text-sm text-slate-600">
+        <InlineNotice tone="loading" className="mt-3 bg-white">
           Reading CSV preview...
-        </div>
+        </InlineNotice>
       )}
 
       {previewError && (
-        <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <InlineNotice tone="error" className="mt-3">
           {previewError}
-        </div>
+        </InlineNotice>
       )}
 
       {csvPreview && (
@@ -715,9 +722,9 @@ function CsvUploadBox({
       )}
 
       {uploadError && (
-        <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <InlineNotice tone="error" className="mt-3">
           {uploadError}
-        </div>
+        </InlineNotice>
       )}
 
       <button
@@ -1357,9 +1364,12 @@ function ImportResultPanel({ data, isLoadingDetail }: ImportResultPanelProps) {
     return (
       <section className="rounded-lg border border-slate-200 bg-white p-5">
         <p className="text-sm font-medium text-slate-500">Import result</p>
-        <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-600">
-          Loading import report...
-        </div>
+        <StatePanel
+          tone="loading"
+          className="mt-5"
+          minHeight="sm"
+          message="Loading import report..."
+        />
       </section>
     );
   }
@@ -1369,9 +1379,11 @@ function ImportResultPanel({ data, isLoadingDetail }: ImportResultPanelProps) {
       <section className="rounded-lg border border-slate-200 bg-white p-5">
         <p className="text-sm font-medium text-slate-500">Import result</p>
         <h3 className="mt-1 text-xl font-bold text-slate-900">No import selected</h3>
-        <div className="mt-5 rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-600">
-          Results and row-level issues will appear here.
-        </div>
+        <StatePanel
+          className="mt-5"
+          minHeight="sm"
+          message="Results and row-level issues will appear here."
+        />
       </section>
     );
   }
@@ -1408,9 +1420,9 @@ function ImportResultPanel({ data, isLoadingDetail }: ImportResultPanelProps) {
         </div>
 
         {issueCount === 0 ? (
-          <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+          <InlineNotice tone="success" className="mt-3">
             No row issues found.
-          </div>
+          </InlineNotice>
         ) : (
           <div className="mt-3 max-h-72 space-y-2 overflow-auto pr-1">
             {[...data.errors, ...data.warnings].map((issue, index) => (
@@ -1466,21 +1478,17 @@ function ImportHistory({ jobs, isLoading, error, selectedJobId, onJobSelect }: I
       </div>
 
       {isLoading && (
-        <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-600">
-          Loading history...
-        </div>
+        <StatePanel tone="loading" className="mt-4" minHeight="sm" message="Loading history..." />
       )}
 
       {error && (
-        <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <InlineNotice tone="error" className="mt-4">
           {error}
-        </div>
+        </InlineNotice>
       )}
 
       {!isLoading && !error && jobs.length === 0 && (
-        <div className="mt-4 rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-600">
-          No imports yet.
-        </div>
+        <StatePanel className="mt-4" minHeight="sm" message="No imports yet." />
       )}
 
       {jobs.length > 0 && (

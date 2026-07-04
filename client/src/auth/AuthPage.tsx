@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { InlineNotice } from '../ui/StatePanel';
 import { useAuth } from './AuthContext';
 import { type AuthFormValues, type AuthMode } from './types';
 
@@ -68,9 +69,9 @@ export function AuthPage() {
         </div>
 
         {submitError && (
-          <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <InlineNotice tone="error" className="mb-4">
             {submitError}
-          </div>
+          </InlineNotice>
         )}
 
         <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>

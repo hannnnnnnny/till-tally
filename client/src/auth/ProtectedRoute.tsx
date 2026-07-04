@@ -1,4 +1,5 @@
 import { type ReactNode } from 'react';
+import { StatePanel } from '../ui/StatePanel';
 import { useAuth } from './AuthContext';
 
 type ProtectedRouteProps = {
@@ -12,9 +13,12 @@ export function ProtectedRoute({ children, fallback }: ProtectedRouteProps) {
   if (status === 'loading') {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
-        <div className="rounded-lg border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-sm">
-          Loading session...
-        </div>
+        <StatePanel
+          tone="loading"
+          minHeight="sm"
+          className="w-full max-w-sm bg-white shadow-sm"
+          message="Loading session..."
+        />
       </main>
     );
   }
