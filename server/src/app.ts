@@ -6,6 +6,7 @@ import { dashboardRouter } from './dashboard/routes';
 import { importRouter } from './imports/routes';
 import { inventoryRouter } from './inventory/routes';
 import { productsRouter } from './products/routes';
+import { reportsRouter } from './reports/routes';
 
 const app = express();
 const port = Number(process.env.PORT ?? 4000);
@@ -17,6 +18,7 @@ app.use('/api/dashboard', dashboardRouter);
 app.use('/api/import', importRouter);
 app.use('/api/inventory', inventoryRouter);
 app.use('/api/products', productsRouter);
+app.use('/api/reports', reportsRouter);
 
 /** Health check — confirms the API is up. */
 app.get('/api/health', (_req: Request, res: Response) => {
