@@ -1,128 +1,162 @@
-# TillTally — Retail Business Analytics Dashboard
+# TillTally
 
-A full-stack business analytics dashboard for small retailers, charity shops and small e-commerce sellers. TillTally turns sales and inventory **CSV exports** into clear KPIs, product performance, inventory-risk alerts, channel analysis and a weekly business report — without enterprise BI complexity.
+Retail business analytics for small retailers, charity shops, and small e-commerce sellers.
+TillTally turns CSV exports into clear KPIs, product performance, inventory-risk alerts,
+channel analysis, and weekly business reports without enterprise BI complexity.
 
-> Answers five questions: How much did we sell? How much profit? Which products performed best? Which are risky (low stock / slow-moving)? Which channels work best?
+TillTally answers five store-owner questions:
 
----
+- How much did we sell?
+- How much gross profit did we make?
+- Which products performed best?
+- Which products need inventory action?
+- Which channels are working best?
 
-## Features (MVP)
+## Demo
 
-- **Authentication** — JWT-based register / login, per-user data isolation
-- **Business workspaces** — manage one or more shops
-- **CSV import** — orders, products & inventory with row-level validation and an import log
-- **Sales dashboard** — revenue, gross profit, gross margin %, orders, AOV, units, low-stock & slow-mover counts
-- **Product performance** — per-product metrics with labels (Best Seller, High Margin, Low Stock, Slow Mover, Dead Stock…)
-- **Inventory insights** — reorder-soon, low-stock, slow-mover and dead-stock detection
-- **Channel analysis** — compare Shopify / Trade Me / in-store / social / manual
-- **Weekly report** — an automatically generated business summary
+Run the seed script to create a portfolio-ready demo workspace.
 
----
+```text
+Email: demo@tilltally.local
+Password: DemoPass123!
+Workspace: Auckland Demo Retail
+```
 
-## Tech stack
+## Screenshots
+
+### Landing Page
+
+![TillTally landing page](docs/screenshots/landing-desktop.png)
+
+### Dashboard
+
+![TillTally dashboard](docs/screenshots/dashboard-desktop.png)
+
+### Mobile Layout
+
+![TillTally mobile dashboard](docs/screenshots/dashboard-mobile.png)
+
+## Features
+
+- Authentication with JWT access tokens, httpOnly refresh cookies, and hashed passwords
+- Business workspaces with per-business data isolation
+- CSV imports for orders, products, inventory snapshots, and import job history
+- Smart import preview, header aliases, column mapping, and row-level correction helpers
+- KPI summary for revenue, gross profit, margin, orders, AOV, units, and inventory risk
+- Sales trend and channel breakdown analytics
+- Product performance ranking with status labels
+- Inventory risk detection for low stock, stockout risk, slow movers, dead stock, and overstock
+- Weekly report generation with top products, warnings, and suggested actions
+- Responsive React dashboard with mobile navigation
+
+## Architecture
+
+```mermaid
+flowchart LR
+  Browser["React app<br/>Vite + Tailwind"] --> Nginx["Nginx static server<br/>/api reverse proxy"]
+  Nginx --> API["Express API<br/>TypeScript"]
+  API --> Auth["Auth services<br/>JWT + bcrypt"]
+  API --> Imports["Import services<br/>CSV parsing + mapping"]
+  API --> Analytics["Analytics services<br/>KPIs + inventory + reports"]
+  API --> Prisma["Prisma ORM"]
+  Prisma --> Postgres["PostgreSQL"]
+  Imports --> SampleData["Sample CSV data"]
+```
+
+## Tech Stack
 
 | Layer | Technology |
 | --- | --- |
-| Frontend | React 18, TypeScript, Vite, Tailwind CSS |
+| Frontend | React 18, TypeScript, Vite, Tailwind CSS, Recharts |
 | Backend | Node.js, Express, TypeScript |
-| Database | PostgreSQL + Prisma ORM |
-| Auth | JWT, hashed passwords |
-| Tooling | npm workspaces, ESLint, Prettier |
-| Deployment | Docker, Nginx, GitHub Actions (planned) |
+| Database | PostgreSQL, Prisma ORM |
+| Auth | JWT, bcrypt, httpOnly refresh cookies |
+| Imports | Multer, csv-parse, Papa Parse |
+| Tooling | npm workspaces, ESLint, Prettier, GitHub Actions |
+| Deployment | Docker, Nginx |
 
----
-
-## Monorepo structure
+## Monorepo Structure
 
 ```text
 till-tally/
 ├── client/        # React + TypeScript + Vite + Tailwind frontend
 ├── server/        # Express + TypeScript API
-├── docs/          # Design documentation (API, database, ...)
-├── sample-data/   # Demo CSV files
-├── package.json   # npm workspaces + root scripts
-└── tsconfig.base.json
+├── docs/          # API, database, screenshots, deployment docs
+├── sample-data/   # Demo CSV files used by the seed script
+├── package.json   # npm workspaces and root scripts
+└── docker-compose.yml
 ```
 
----
-
-## Getting started
+## Getting Started
 
 ### Prerequisites
 
-- **Node.js 20+** and **npm 10+**
-- **Docker** + **Docker Compose** (to run PostgreSQL locally)
+- Node.js 20+ and npm 10+
+- Docker Desktop or Docker Engine with Docker Compose
 
-### 1. Install
+### Install Dependencies
 
 ```bash
 git clone https://github.com/hannnnnnnny/till-tally.git
 cd till-tally
-npm install            # installs all workspaces
+npm install
 ```
 
-### 2. Configure environment
+On Windows PowerShell, use `npm.cmd` if script execution policy blocks `npm`.
 
-Secrets are **only** read from environment variables — never hardcoded. Copy the example files and fill in your own values:
+### Configure Environment
+
+Copy the example files and fill in local secrets:
 
 ```bash
 cp server/.env.example server/.env
 cp client/.env.example client/.env
 ```
 
-Generate strong JWT secrets, for example:
+Generate strong JWT secrets:
 
 ```bash
 openssl rand -hex 32
 ```
 
-### 3. Start the database
+Secrets are read from environment variables and must not be committed.
 
-A PostgreSQL instance is provided via Docker Compose. For local development you
-typically run **only the database** in Docker and the apps with `npm`:
-
-```bash
-docker compose up -d db     # starts PostgreSQL on localhost:5432
-docker compose ps           # check it is healthy
-```
-
-It uses dev-only defaults (`tilltally` / `tilltally` / `tilltally`) that match the
-`DATABASE_URL` in `server/.env.example`. Data persists in a named volume; run
-`docker compose down -v` to reset it. Override credentials with `POSTGRES_USER`,
-`POSTGRES_PASSWORD`, `POSTGRES_DB` or `POSTGRES_PORT` (e.g. in a root `.env`).
-
-### 4. Run in development
+### Run the Database
 
 ```bash
-npm run dev:server     # API on http://localhost:4000
-npm run dev:client     # App on http://localhost:5173 (proxies /api -> 4000)
+docker compose up -d db
+docker compose ps
 ```
 
-Health check: <http://localhost:4000/api/health>
+The local database uses development defaults that match `server/.env.example`.
+Data is stored in a Docker volume. To reset local data:
 
-### Optional: seed demo data
+```bash
+docker compose down -v
+```
 
-After the database is running and migrations are applied, seed a demo user,
-business, products, orders, inventory snapshots and import jobs:
+### Seed Demo Data
 
 ```bash
 npm run db:seed
 ```
 
-Demo login:
+This creates the demo user, business workspace, products, orders, inventory snapshots,
+and import jobs from `sample-data/*.csv`.
 
-```text
-Email: demo@tilltally.local
-Password: DemoPass123!
+### Run in Development
+
+```bash
+npm run dev:server
+npm run dev:client
 ```
 
-The seed is idempotent for the demo business: running it again recreates the
-same sample workspace from `sample-data/*.csv`.
+| Service | URL |
+| --- | --- |
+| Client | <http://localhost:5173> |
+| API health check | <http://localhost:4000/api/health> |
 
-### Run the whole stack in Docker
-
-Alternatively, build and run all three services (database, API, client) in
-containers:
+### Run the Full Stack in Docker
 
 ```bash
 docker compose up -d --build
@@ -130,11 +164,9 @@ docker compose up -d --build
 
 | Service | URL |
 | --- | --- |
-| Client (nginx) | <http://localhost:8080> |
-| API | <http://localhost:4000/api/health> |
-| Database | `localhost:5432` |
-
----
+| Client | <http://localhost:8080> |
+| API health check | <http://localhost:4000/api/health> |
+| PostgreSQL | `localhost:5432` |
 
 ## Scripts
 
@@ -151,33 +183,28 @@ Run from the repository root:
 | `npm run format` | Format with Prettier |
 | `npm run format:check` | Check formatting without writing |
 
----
-
 ## Documentation
 
 | Document | Description |
 | --- | --- |
-| [docs/API.md](docs/API.md) | REST API design — endpoints, request/response, errors, security |
-| [docs/DATABASE.md](docs/DATABASE.md) | Database schema, ERD, Prisma models, indexing, data isolation |
+| [docs/API.md](docs/API.md) | REST API endpoints, request/response shapes, errors, and auth |
+| [docs/DATABASE.md](docs/DATABASE.md) | Database schema, ERD, Prisma models, indexes, and isolation rules |
 
-The full product plan lives in `TT.md` (vision, scope, roadmap).
+The full product plan lives in `TT.md`.
 
----
+## Security and Privacy
 
-## Security & privacy
-
-- Passwords are hashed; authentication uses JWT.
-- Every business-scoped query is filtered by a verified `business_id` (no cross-tenant access).
-- CSV uploads are validated for type and size.
-- **Privacy-first:** only analytics-relevant data is imported — no customer names, emails, phone numbers, addresses or payment details.
-
----
+- Passwords are hashed before storage.
+- Refresh tokens are stored in httpOnly cookies.
+- Access tokens are short-lived.
+- Every business-scoped request is checked against membership before data is returned.
+- CSV uploads enforce file type, generated filenames, path stripping, and size limits.
+- Imports avoid customer PII such as names, emails, phone numbers, addresses, and payment details.
 
 ## Roadmap
 
-Work is tracked on the [TillTally project board](https://github.com/users/hannnnnnnny/projects/2), organised into epics **A–G** (foundation, auth, workspace, import, analytics, frontend, reporting & deployment).
-
----
+Work is tracked on the [TillTally project board](https://github.com/users/hannnnnnnny/projects/2)
+across epics A-G: foundation, auth, workspace, import, analytics, frontend, reporting, and deployment.
 
 ## License
 
