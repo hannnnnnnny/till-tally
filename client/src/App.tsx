@@ -11,6 +11,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { ImportsPage } from './pages/ImportsPage';
 import { InventoryPage } from './pages/InventoryPage';
 import { ProductsPage } from './pages/ProductsPage';
+import { ReportsPage } from './pages/ReportsPage';
 import { WorkspacePage } from './pages/WorkspacePage';
 import { StatePanel } from './ui/StatePanel';
 
@@ -34,6 +35,7 @@ export default function App() {
           <Route path="imports" element={<ImportsPage />} />
           <Route path="products" element={<ProductsPage />} />
           <Route path="inventory" element={<InventoryPage />} />
+          <Route path="reports/weekly" element={<ReportsPage />} />
           <Route path="workspace" element={<WorkspacePage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

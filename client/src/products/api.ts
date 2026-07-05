@@ -21,6 +21,8 @@ export function buildProductPerformanceSearchParams(
   appendOptionalSearchParam(searchParams, 'search', query.search);
   appendOptionalSearchParam(searchParams, 'category', query.category);
   appendOptionalSearchParam(searchParams, 'status', query.status);
+  appendOptionalSearchParam(searchParams, 'from', query.from ?? '');
+  appendOptionalSearchParam(searchParams, 'to', query.to ?? '');
 
   return searchParams;
 }

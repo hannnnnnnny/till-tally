@@ -128,7 +128,7 @@ export function AppShell() {
       </div>
 
       <nav
-        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-3 gap-1 border-t border-slate-200 bg-white px-1.5 py-2 shadow-lg min-[375px]:px-2 sm:grid-cols-6 lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 gap-1 border-t border-slate-200 bg-white px-1.5 py-2 shadow-lg min-[375px]:px-2 sm:grid-cols-7 lg:hidden"
         aria-label="Primary"
       >
         {APP_NAV_ITEMS.map((item) => (

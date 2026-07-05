@@ -15,6 +15,7 @@ describe('app navigation routes', () => {
         { path: '/imports', label: 'Imports' },
         { path: '/products', label: 'Products' },
         { path: '/inventory', label: 'Inventory' },
+        { path: '/reports/weekly', label: 'Reports' },
         { path: '/workspace', label: 'Workspace' },
       ],
     );
@@ -28,6 +29,7 @@ describe('app navigation routes', () => {
     assert.equal(getRouteTitle('/dashboard'), 'Dashboard');
     assert.equal(getRouteTitle('/channels'), 'Channels');
     assert.equal(getRouteTitle('/imports'), 'Imports');
+    assert.equal(getRouteTitle('/reports/weekly'), 'Reports');
     assert.equal(getRouteTitle('/unknown'), 'Dashboard');
   });
 });
