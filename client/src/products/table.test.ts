@@ -13,17 +13,19 @@ describe('product performance table helpers', () => {
   it('builds product performance query params from table controls', () => {
     const searchParams = buildProductPerformanceSearchParams({
       category: 'Women',
+      from: '2026-06-15',
       order: 'asc',
       page: 2,
       pageSize: 50,
       search: 'jacket',
       sort: 'unitsSold',
       status: 'High Margin',
+      to: '2026-06-21',
     });
 
     assert.equal(
       searchParams.toString(),
-      'sort=unitsSold&order=asc&page=2&pageSize=50&search=jacket&category=Women&status=High+Margin',
+      'sort=unitsSold&order=asc&page=2&pageSize=50&search=jacket&category=Women&status=High+Margin&from=2026-06-15&to=2026-06-21',
     );
   });
 

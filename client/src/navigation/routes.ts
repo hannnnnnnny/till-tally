@@ -4,6 +4,7 @@ export type AppRouteId =
   | 'imports'
   | 'products'
   | 'inventory'
+  | 'reports'
   | 'workspace';
 
 export type AppNavItem = {
@@ -45,6 +46,12 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
     label: 'Inventory',
     path: '/inventory',
     description: 'Risk and replenishment',
+  },
+  {
+    id: 'reports',
+    label: 'Reports',
+    path: '/reports/weekly',
+    description: 'Weekly summary and actions',
   },
   {
     id: 'workspace',

@@ -45,10 +45,12 @@ export type ProductPerformanceResult = {
 
 export type ProductPerformanceQuery = {
   category: string;
+  from?: string;
   order: ProductSortOrder;
   page: number;
   pageSize: number;
   search: string;
   sort: ProductPerformanceSort;
   status: string;
+  to?: string;
 };
