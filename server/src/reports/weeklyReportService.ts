@@ -2,6 +2,7 @@ import { prisma } from '../db/prisma';
 
 const LOW_STOCK_THRESHOLD = 5;
 const SLOW_MOVER_DAYS = 60;
+const ALLOWED_WEEKLY_REPORT_QUERY_PARAMS = new Set(['businessId', 'weekStart']);
 
 type NumericValue = number | string | { toString(): string };
 
@@ -29,8 +30,10 @@ export type BuildWeeklyReportInput = {
 };
 
 export type GenerateWeeklyReportInput = {
-  weekStart?: Date | string;
+  weekStart?: unknown;
 };
+
+export type WeeklyReportQueryInput = Record<string, unknown>;
 
 export type WeeklyReportDraft = {
   businessId: string;
@@ -104,6 +107,16 @@ type WeeklyReportUpsertInput = {
   };
 };
 
+type WeeklyReportFindFirstInput = {
+  where: {
+    businessId: string;
+    weekStart?: Date;
+  };
+  orderBy?: {
+    weekStart: 'desc';
+  };
+};
+
 type WeeklyReportRecordSource = Omit<WeeklyReportPersistenceFields, 'salesChangePercent'> & {
   id: string;
   businessId: string;
@@ -121,8 +134,16 @@ export type WeeklyReportPrismaClient = {
   };
   weeklyReport: {
     upsert(input: WeeklyReportUpsertInput): Promise<WeeklyReportRecordSource>;
+    findFirst(input: WeeklyReportFindFirstInput): Promise<WeeklyReportRecordSource | null>;
   };
 };
+
+export class WeeklyReportQueryError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'WeeklyReportQueryError';
+  }
+}
 
 export function buildWeeklyReport(input: BuildWeeklyReportInput): WeeklyReportDraft {
   if (!input.businessId) {
@@ -168,7 +189,7 @@ export async function generateWeeklyReport(
     throw new Error('Business id is required');
   }
 
-  const weekStart = startOfUtcWeek(parseReportDate(input.weekStart ?? new Date()));
+  const weekStart = startOfUtcWeek(parseOptionalWeekStart(input.weekStart) ?? new Date());
   const weekEnd = addUtcDays(weekStart, 6);
   const previousWeekStart = addUtcDays(weekStart, -7);
   const previousWeekEnd = addUtcDays(weekStart, -1);
@@ -238,6 +259,55 @@ export async function generateWeeklyReport(
   });
 
   return toWeeklyReportResponse(persistedReport);
+}
+
+export async function getWeeklyReport(
+  businessId: string,
+  queryInput: WeeklyReportQueryInput = {},
+  db: WeeklyReportPrismaClient = prisma,
+): Promise<WeeklyReportResponse | null> {
+  if (!businessId) {
+    throw new Error('Business id is required');
+  }
+
+  const weekStart = parseWeeklyReportQuery(queryInput);
+  const report = await db.weeklyReport.findFirst(
+    weekStart
+      ? {
+          where: {
+            businessId,
+            weekStart,
+          },
+        }
+      : {
+          where: {
+            businessId,
+          },
+          orderBy: {
+            weekStart: 'desc',
+          },
+        },
+  );
+
+  return report ? toWeeklyReportResponse(report) : null;
+}
+
+function parseWeeklyReportQuery(query: WeeklyReportQueryInput): Date | null {
+  for (const name of Object.keys(query)) {
+    if (!ALLOWED_WEEKLY_REPORT_QUERY_PARAMS.has(name)) {
+      throw new WeeklyReportQueryError(`Unsupported query parameter "${name}"`);
+    }
+  }
+
+  const value = query.weekStart;
+
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  const weekStart = parseOptionalWeekStart(value);
+
+  return weekStart ? startOfUtcWeek(weekStart) : null;
 }
 
 function createOrderSelect(): WeeklyReportOrderFindManyInput['select'] {
@@ -340,16 +410,32 @@ function parseReportDate(value: Date | string): Date {
   }
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    throw new Error('weekStart must use YYYY-MM-DD');
+    throw new WeeklyReportQueryError('weekStart must use YYYY-MM-DD');
   }
 
   const date = new Date(`${value}T00:00:00.000Z`);
 
   if (Number.isNaN(date.getTime()) || formatDateOnly(date) !== value) {
-    throw new Error('weekStart must be a valid date');
+    throw new WeeklyReportQueryError('weekStart must be a valid date');
   }
 
   return date;
+}
+
+function parseOptionalWeekStart(value: unknown): Date | null {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return startOfUtcDay(value);
+  }
+
+  if (typeof value !== 'string') {
+    throw new WeeklyReportQueryError('weekStart must be a string');
+  }
+
+  return parseReportDate(value);
 }
 
 function sumOrderSales(orders: WeeklyReportOrderSource[]): number {
