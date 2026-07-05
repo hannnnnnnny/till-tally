@@ -189,6 +189,7 @@ Run from the repository root:
 | --- | --- |
 | [docs/API.md](docs/API.md) | REST API endpoints, request/response shapes, errors, and auth |
 | [docs/DATABASE.md](docs/DATABASE.md) | Database schema, ERD, Prisma models, indexes, and isolation rules |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Ubuntu, Docker Compose, Nginx, HTTPS, backups, and release steps |
 
 The full product plan lives in `TT.md`.
 

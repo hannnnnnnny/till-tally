@@ -35,39 +35,39 @@ export function LandingPage() {
   const primaryLabel = isAuthenticated ? 'Open dashboard' : 'Try demo login';
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-slate-50">
+    <div className="min-h-screen overflow-x-hidden bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-slate-50">
       <LandingNav primaryTarget={primaryTarget} primaryLabel={primaryLabel} />
 
       <section className="relative isolate min-h-[88dvh] overflow-hidden bg-slate-50 dark:bg-slate-950">
         <div className="absolute inset-0 bg-slate-50/90 dark:bg-slate-950/90" />
-        <div className="absolute inset-x-0 bottom-0 top-20 overflow-hidden opacity-55 sm:opacity-70">
+        <div className="absolute inset-x-0 bottom-0 top-20 hidden overflow-hidden opacity-55 sm:opacity-70 lg:block">
           <div className="absolute left-1/2 top-10 w-[980px] -translate-x-[26%] sm:top-14 lg:top-20 lg:w-[1180px] lg:-translate-x-[12%]">
             <HeroDashboardPreview />
           </div>
         </div>
 
         <div className="relative z-10 mx-auto flex min-h-[calc(88dvh-72px)] max-w-7xl items-center px-4 pb-16 pt-24 sm:px-6 lg:px-8">
-          <div className="max-w-3xl py-12">
+          <div className="w-full max-w-3xl py-12">
             <p className="text-sm font-semibold text-blue-700 dark:text-blue-300">
               Retail analytics for small businesses
             </p>
-            <h1 className="mt-5 max-w-2xl text-5xl font-black leading-[0.98] text-slate-950 sm:text-6xl lg:text-7xl dark:text-white">
+            <h1 className="mt-5 max-w-2xl text-4xl font-black leading-[0.98] text-slate-950 sm:text-6xl lg:text-7xl dark:text-white">
               TillTally
             </h1>
-            <p className="mt-6 max-w-xl text-lg leading-8 text-slate-700 dark:text-slate-200">
+            <p className="mt-6 max-w-full break-words text-base leading-8 text-slate-700 sm:max-w-xl sm:text-lg dark:text-slate-200">
               Turn messy sales CSVs into clear decisions for revenue, margin, products, and
               inventory.
             </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <div className="mt-8 flex max-w-sm flex-col gap-3 sm:max-w-none sm:flex-row">
               <Link
                 to={primaryTarget}
-                className="inline-flex h-11 items-center justify-center rounded-md bg-blue-700 px-5 text-sm font-semibold text-white shadow-sm shadow-blue-900/10 transition hover:bg-blue-800 active:translate-y-px"
+                className="inline-flex h-11 w-full items-center justify-center rounded-md bg-blue-700 px-5 text-sm font-semibold text-white shadow-sm shadow-blue-900/10 transition hover:bg-blue-800 active:translate-y-px sm:w-auto"
               >
                 {primaryLabel}
               </Link>
               <a
                 href="#preview"
-                className="inline-flex h-11 items-center justify-center rounded-md border border-slate-300 bg-white/80 px-5 text-sm font-semibold text-slate-900 transition hover:bg-white active:translate-y-px dark:border-slate-600 dark:bg-slate-900/75 dark:text-white dark:hover:bg-slate-900"
+                className="inline-flex h-11 w-full items-center justify-center rounded-md border border-slate-300 bg-white/80 px-5 text-sm font-semibold text-slate-900 transition hover:bg-white active:translate-y-px dark:border-slate-600 dark:bg-slate-900/75 dark:text-white dark:hover:bg-slate-900 sm:w-auto"
               >
                 View dashboard preview
               </a>
@@ -106,10 +106,16 @@ function LandingNav({
 }) {
   return (
     <header className="fixed inset-x-0 top-0 z-30 border-b border-slate-200/80 bg-white/90 backdrop-blur dark:border-slate-800/80 dark:bg-slate-950/85">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        <Link to="/" className="flex min-w-0 items-center gap-3" aria-label="TillTally home">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
+        <Link
+          to="/"
+          className="flex min-w-0 items-center gap-2 sm:gap-3"
+          aria-label="TillTally home"
+        >
           <img src="/favicon.svg" alt="" className="h-9 w-9 rounded-xl" />
-          <span className="text-lg font-black text-slate-950 dark:text-white">TillTally</span>
+          <span className="truncate text-base font-black text-slate-950 sm:text-lg dark:text-white">
+            TillTally
+          </span>
         </Link>
 
         <nav className="hidden items-center gap-6 md:flex" aria-label="Landing">
@@ -126,7 +132,7 @@ function LandingNav({
 
         <Link
           to={primaryTarget}
-          className="inline-flex h-10 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 active:translate-y-px dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
+          className="hidden h-10 shrink-0 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 active:translate-y-px dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200 sm:inline-flex"
         >
           {primaryLabel}
         </Link>
@@ -314,7 +320,7 @@ function DemoLoginSection() {
 
 function HeroDashboardPreview() {
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl shadow-slate-900/10 dark:border-slate-800 dark:bg-slate-900 dark:shadow-black/30">
+    <div className="max-w-full overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl shadow-slate-900/10 dark:border-slate-800 dark:bg-slate-900 dark:shadow-black/30">
       <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
         <div>
           <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">TillTally</p>
@@ -342,7 +348,7 @@ function HeroDashboardPreview() {
                   {metric.label}
                 </p>
                 <div className="mt-3 flex items-end justify-between gap-3">
-                  <p className="text-2xl font-black text-slate-950 dark:text-white">
+                  <p className="text-xl font-black text-slate-950 sm:text-2xl dark:text-white">
                     {metric.value}
                   </p>
                   <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
