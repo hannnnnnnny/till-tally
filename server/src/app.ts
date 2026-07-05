@@ -11,7 +11,10 @@ import { reportsRouter } from './reports/routes';
 const app = express();
 const port = Number(process.env.PORT ?? 4000);
 
-app.use(express.json());
+app.disable('x-powered-by');
+app.set('trust proxy', 1);
+
+app.use(express.json({ limit: '1mb' }));
 app.use('/api/auth', authRouter);
 app.use('/api/businesses', businessesRouter);
 app.use('/api/dashboard', dashboardRouter);
