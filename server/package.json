@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx --test \"src/**/*.test.ts\"",
     "prisma:generate": "prisma generate",
-    "prisma:deploy": "prisma migrate deploy",
+    "prisma:deploy": "tsx src/db/repairKnownMigrationDriftCli.ts && prisma migrate deploy",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "prisma db seed",
     "prisma:studio": "prisma studio"

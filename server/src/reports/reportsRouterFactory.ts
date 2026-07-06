@@ -1,4 +1,5 @@
 import { type RequestHandler, type Response, Router } from 'express';
+import { isPrismaMissingTableError } from '../db/migrationDrift';
 import {
   type GenerateWeeklyReportInput,
   type WeeklyReportQueryInput,
@@ -19,7 +20,11 @@ export type ReportsRouterDependencies = {
   ) => Promise<WeeklyReportResponse>;
 };
 
-type ReportErrorCode = 'BAD_REPORT_QUERY' | 'NO_BUSINESS_ACCESS' | 'NOT_FOUND';
+type ReportErrorCode =
+  | 'BAD_REPORT_QUERY'
+  | 'NO_BUSINESS_ACCESS'
+  | 'NOT_FOUND'
+  | 'REPORTS_SCHEMA_NOT_READY';
 
 function sendReportError(
   res: Response,
@@ -59,6 +64,16 @@ export function createReportsRouter(dependencies: ReportsRouterDependencies): Ro
         return;
       }
 
+      if (isPrismaMissingTableError(error, 'weekly_reports')) {
+        sendReportError(
+          res,
+          503,
+          'REPORTS_SCHEMA_NOT_READY',
+          'Weekly reports are unavailable until Prisma migrations have been applied.',
+        );
+        return;
+      }
+
       throw error;
     }
   });
@@ -80,6 +95,16 @@ export function createReportsRouter(dependencies: ReportsRouterDependencies): Ro
       } catch (error) {
         if (error instanceof WeeklyReportQueryError) {
           sendReportError(res, 400, 'BAD_REPORT_QUERY', error.message);
+          return;
+        }
+
+        if (isPrismaMissingTableError(error, 'weekly_reports')) {
+          sendReportError(
+            res,
+            503,
+            'REPORTS_SCHEMA_NOT_READY',
+            'Weekly reports are unavailable until Prisma migrations have been applied.',
+          );
           return;
         }
 

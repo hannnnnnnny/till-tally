@@ -13,6 +13,25 @@ type ErrorResponse = {
 };
 
 describe('reports routes', () => {
+  it('returns 503 when the weekly reports table has not been migrated yet', async () => {
+    const app = createTestApp({
+      getWeeklyReport: async () => {
+        throw {
+          code: 'P2021',
+          meta: {
+            table: 'public.weekly_reports',
+          },
+        };
+      },
+    });
+
+    const response = await request(app).get('/api/reports/weekly').expect(503);
+    const body = response.body as ErrorResponse;
+
+    assert.equal(body.error.code, 'REPORTS_SCHEMA_NOT_READY');
+    assert.match(body.error.message, /prisma migrations/i);
+  });
+
   it('returns an existing weekly report for the active business', async () => {
     let capturedRequest:
       | {
