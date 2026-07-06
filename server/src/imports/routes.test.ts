@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import { ImportStatus, ImportType } from '@prisma/client';
 import express, { type RequestHandler } from 'express';
 import request from 'supertest';
+import { createRateLimiter } from '../http/rateLimit';
 import { createImportRouter, type ImportRouterDependencies } from './importRouterFactory';
 import { type ImportJobDetail, type ImportJobsListResult } from './importJobService';
 
@@ -91,6 +92,33 @@ describe('import routes', () => {
 
     assert.equal(body.error.code, 'NOT_FOUND');
     assert.equal(body.error.message, 'Import job not found');
+  });
+
+  it('rate limits CSV import submissions before running upload middleware', async () => {
+    let uploadAttempts = 0;
+    const app = createTestApp({
+      importRateLimit: createRateLimiter({
+        code: 'IMPORT_RATE_LIMITED',
+        max: 1,
+        message: 'Too many import requests. Please try again later.',
+        windowMs: 60_000,
+      }),
+      uploadCsvFile: (_req, _res, next) => {
+        uploadAttempts += 1;
+        next();
+      },
+    });
+
+    await request(app).post('/api/import/orders').expect(400);
+    const response = await request(app).post('/api/import/orders').expect(429);
+
+    assert.equal(uploadAttempts, 1);
+    assert.deepEqual(response.body, {
+      error: {
+        code: 'IMPORT_RATE_LIMITED',
+        message: 'Too many import requests. Please try again later.',
+      },
+    });
   });
 });
 

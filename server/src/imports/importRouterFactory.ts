@@ -12,6 +12,7 @@ import { type ImportProductsInput, type ImportProductsResult } from './productIm
 export type ImportRouterDependencies = {
   requireAuth: RequestHandler;
   requireBusinessAccess: RequestHandler;
+  importRateLimit?: RequestHandler;
   uploadCsvFile: RequestHandler;
   listImportJobs: (
     businessId: string,
@@ -78,6 +79,7 @@ export function createImportRouter(dependencies: ImportRouterDependencies): Rout
     '/orders',
     dependencies.requireAuth,
     dependencies.requireBusinessAccess,
+    dependencies.importRateLimit ?? passthrough,
     dependencies.uploadCsvFile,
     asyncHandler(async (req, res) => {
       if (!req.businessId) {
@@ -103,6 +105,7 @@ export function createImportRouter(dependencies: ImportRouterDependencies): Rout
     '/products',
     dependencies.requireAuth,
     dependencies.requireBusinessAccess,
+    dependencies.importRateLimit ?? passthrough,
     dependencies.uploadCsvFile,
     asyncHandler(async (req, res) => {
       if (!req.businessId) {
@@ -126,3 +129,5 @@ export function createImportRouter(dependencies: ImportRouterDependencies): Rout
 
   return router;
 }
+
+const passthrough: RequestHandler = (_req, _res, next) => next();

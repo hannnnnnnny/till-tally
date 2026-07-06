@@ -1,6 +1,8 @@
-import { type Response, Router } from 'express';
+import { type RequestHandler, type Response, Router } from 'express';
 import { TokenExpiredError } from 'jsonwebtoken';
 import { prisma } from '../db/prisma';
+import { asyncHandler } from '../http/asyncHandler';
+import { authRateLimit } from '../http/rateLimit';
 import { requireAuth } from './middleware';
 import { hashPassword, verifyPassword } from './password';
 import {
@@ -8,13 +10,14 @@ import {
   getRefreshTokenFromRequest,
   setRefreshTokenCookie,
 } from './refreshCookie';
-import { asyncHandler } from '../http/asyncHandler';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from './tokens';
-
-export const authRouter = Router();
 
 const INVALID_CREDENTIALS_ERROR = 'Invalid email or password';
 const ACCESS_TOKEN_EXPIRES_IN_SECONDS = 900;
+
+export type AuthRouterOptions = {
+  authRateLimit?: RequestHandler;
+};
 
 type SafeUser = {
   id: string;
@@ -50,7 +53,11 @@ function isUniqueConstraintError(error: unknown): boolean {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002';
 }
 
-authRouter.post('/register', asyncHandler(async (req, res) => {
+export function createAuthRouter(options: AuthRouterOptions = {}): Router {
+  const router = Router();
+  const authLimiter = options.authRateLimit ?? authRateLimit;
+
+  router.post('/register', authLimiter, asyncHandler(async (req, res) => {
   const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
   const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
   const password = typeof req.body.password === 'string' ? req.body.password : '';
@@ -91,9 +98,9 @@ authRouter.post('/register', asyncHandler(async (req, res) => {
 
     throw error;
   }
-}));
+  }));
 
-authRouter.post('/login', asyncHandler(async (req, res) => {
+  router.post('/login', authLimiter, asyncHandler(async (req, res) => {
   const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
   const password = typeof req.body.password === 'string' ? req.body.password : '';
 
@@ -128,9 +135,9 @@ authRouter.post('/login', asyncHandler(async (req, res) => {
     name: user.name,
     email: user.email,
   });
-}));
+  }));
 
-authRouter.get('/me', requireAuth, asyncHandler(async (req, res) => {
+  router.get('/me', requireAuth, asyncHandler(async (req, res) => {
   if (!req.userId) {
     return sendAuthError(res, 'UNAUTHENTICATED', 'Missing authenticated user');
   }
@@ -153,9 +160,9 @@ authRouter.get('/me', requireAuth, asyncHandler(async (req, res) => {
   return res.json({
     user,
   });
-}));
+  }));
 
-authRouter.post('/refresh', asyncHandler(async (req, res) => {
+  router.post('/refresh', authLimiter, asyncHandler(async (req, res) => {
   const refreshToken = getRefreshTokenFromRequest(req);
 
   if (!refreshToken) {
@@ -196,9 +203,14 @@ authRouter.post('/refresh', asyncHandler(async (req, res) => {
 
     return sendAuthError(res, 'UNAUTHENTICATED', 'Invalid refresh token');
   }
-}));
+  }));
 
-authRouter.post('/logout', (_req, res) => {
+  router.post('/logout', (_req, res) => {
   clearRefreshTokenCookie(res);
   return res.status(204).send();
-});
+  });
+
+  return router;
+}
+
+export const authRouter = createAuthRouter();
