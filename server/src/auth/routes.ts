@@ -8,6 +8,7 @@ import {
   getRefreshTokenFromRequest,
   setRefreshTokenCookie,
 } from './refreshCookie';
+import { asyncHandler } from '../http/asyncHandler';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from './tokens';
 
 export const authRouter = Router();
@@ -49,7 +50,7 @@ function isUniqueConstraintError(error: unknown): boolean {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002';
 }
 
-authRouter.post('/register', async (req, res) => {
+authRouter.post('/register', asyncHandler(async (req, res) => {
   const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
   const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
   const password = typeof req.body.password === 'string' ? req.body.password : '';
@@ -90,9 +91,9 @@ authRouter.post('/register', async (req, res) => {
 
     throw error;
   }
-});
+}));
 
-authRouter.post('/login', async (req, res) => {
+authRouter.post('/login', asyncHandler(async (req, res) => {
   const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
   const password = typeof req.body.password === 'string' ? req.body.password : '';
 
@@ -127,9 +128,9 @@ authRouter.post('/login', async (req, res) => {
     name: user.name,
     email: user.email,
   });
-});
+}));
 
-authRouter.get('/me', requireAuth, async (req, res) => {
+authRouter.get('/me', requireAuth, asyncHandler(async (req, res) => {
   if (!req.userId) {
     return sendAuthError(res, 'UNAUTHENTICATED', 'Missing authenticated user');
   }
@@ -152,9 +153,9 @@ authRouter.get('/me', requireAuth, async (req, res) => {
   return res.json({
     user,
   });
-});
+}));
 
-authRouter.post('/refresh', async (req, res) => {
+authRouter.post('/refresh', asyncHandler(async (req, res) => {
   const refreshToken = getRefreshTokenFromRequest(req);
 
   if (!refreshToken) {
@@ -195,7 +196,7 @@ authRouter.post('/refresh', async (req, res) => {
 
     return sendAuthError(res, 'UNAUTHENTICATED', 'Invalid refresh token');
   }
-});
+}));
 
 authRouter.post('/logout', (_req, res) => {
   clearRefreshTokenCookie(res);

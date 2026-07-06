@@ -2,6 +2,7 @@ import { Role } from '@prisma/client';
 import { type Response, Router } from 'express';
 import { requireAuth } from '../auth/middleware';
 import { prisma } from '../db/prisma';
+import { asyncHandler } from '../http/asyncHandler';
 
 export const businessesRouter = Router();
 
@@ -37,7 +38,7 @@ function sendValidationError(res: Response, field: BusinessField, message: strin
   });
 }
 
-businessesRouter.post('/', requireAuth, async (req, res) => {
+businessesRouter.post('/', requireAuth, asyncHandler(async (req, res) => {
   if (!req.userId) {
     return sendBusinessError(res, 401, 'UNAUTHENTICATED', 'Missing authenticated user');
   }
@@ -104,9 +105,9 @@ businessesRouter.post('/', requireAuth, async (req, res) => {
     ...business,
     role: Role.OWNER,
   });
-});
+}));
 
-businessesRouter.get('/', requireAuth, async (req, res) => {
+businessesRouter.get('/', requireAuth, asyncHandler(async (req, res) => {
   if (!req.userId) {
     return sendBusinessError(res, 401, 'UNAUTHENTICATED', 'Missing authenticated user');
   }
@@ -137,9 +138,9 @@ businessesRouter.get('/', requireAuth, async (req, res) => {
       role: membership.role,
     })),
   });
-});
+}));
 
-businessesRouter.get('/:id', requireAuth, async (req, res) => {
+businessesRouter.get('/:id', requireAuth, asyncHandler(async (req, res) => {
   if (!req.userId) {
     return sendBusinessError(res, 401, 'UNAUTHENTICATED', 'Missing authenticated user');
   }
@@ -193,4 +194,4 @@ businessesRouter.get('/:id', requireAuth, async (req, res) => {
     ...business,
     role: membership.role,
   });
-});
+}));

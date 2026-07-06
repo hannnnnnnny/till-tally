@@ -1,4 +1,5 @@
 import { type RequestHandler, type Response, Router } from 'express';
+import { asyncHandler } from '../http/asyncHandler';
 import { type ChannelBreakdownResult } from './channelBreakdownService';
 import {
   DashboardDateRangeError,
@@ -47,7 +48,7 @@ export function createDashboardRouter(dependencies: DashboardRouterDependencies)
     '/summary',
     dependencies.requireAuth,
     dependencies.requireBusinessAccess,
-    async (req, res) => {
+    asyncHandler(async (req, res) => {
       if (!req.businessId) {
         sendDashboardError(res, 403, 'NO_BUSINESS_ACCESS', 'Missing business context');
         return;
@@ -65,14 +66,14 @@ export function createDashboardRouter(dependencies: DashboardRouterDependencies)
 
         throw error;
       }
-    },
+    }),
   );
 
   router.get(
     '/sales-trend',
     dependencies.requireAuth,
     dependencies.requireBusinessAccess,
-    async (req, res) => {
+    asyncHandler(async (req, res) => {
       if (!req.businessId) {
         sendDashboardError(res, 403, 'NO_BUSINESS_ACCESS', 'Missing business context');
         return;
@@ -90,14 +91,14 @@ export function createDashboardRouter(dependencies: DashboardRouterDependencies)
 
         throw error;
       }
-    },
+    }),
   );
 
   router.get(
     '/channel-breakdown',
     dependencies.requireAuth,
     dependencies.requireBusinessAccess,
-    async (req, res) => {
+    asyncHandler(async (req, res) => {
       if (!req.businessId) {
         sendDashboardError(res, 403, 'NO_BUSINESS_ACCESS', 'Missing business context');
         return;
@@ -115,7 +116,7 @@ export function createDashboardRouter(dependencies: DashboardRouterDependencies)
 
         throw error;
       }
-    },
+    }),
   );
 
   return router;

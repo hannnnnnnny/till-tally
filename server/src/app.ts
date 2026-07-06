@@ -7,6 +7,7 @@ import { importRouter } from './imports/routes';
 import { inventoryRouter } from './inventory/routes';
 import { productsRouter } from './products/routes';
 import { reportsRouter } from './reports/routes';
+import { errorHandler, notFoundHandler } from './http/errorMiddleware';
 
 const app = express();
 const port = Number(process.env.PORT ?? 4000);
@@ -27,6 +28,9 @@ app.use('/api/reports', reportsRouter);
 app.get('/api/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', service: 'till-tally-api' });
 });
+
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 app.listen(port, () => {
   // Startup banner (intentional log, not debug output).
