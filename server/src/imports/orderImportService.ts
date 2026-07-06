@@ -1,4 +1,3 @@
-import { readFile } from 'node:fs/promises';
 import { ImportStatus, ImportType, Prisma } from '@prisma/client';
 import { prisma } from '../db/prisma';
 import {
@@ -8,6 +7,7 @@ import {
   type CsvValidationResult,
   validateOrdersCsv,
 } from './csvValidation';
+import { readUploadedCsvText } from './uploadedFileLifecycle';
 import { type UploadedCsvFile } from './uploadMiddleware';
 
 export type ImportOrdersInput = {
@@ -45,7 +45,7 @@ type OrderImportPlan = {
 };
 
 export async function importOrdersCsvFile(input: ImportOrdersInput): Promise<ImportOrdersResult> {
-  const csvText = await readFile(input.uploadedFile.path, 'utf8');
+  const csvText = await readUploadedCsvText(input.uploadedFile);
   const validation = validateOrdersCsv(csvText);
 
   const orderNumbers = validation.validRows.map((row) => row.orderNumber);

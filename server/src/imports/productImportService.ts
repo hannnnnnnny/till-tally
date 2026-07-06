@@ -1,4 +1,3 @@
-import { readFile } from 'node:fs/promises';
 import { ImportStatus, ImportType, Prisma } from '@prisma/client';
 import { prisma } from '../db/prisma';
 import {
@@ -7,6 +6,7 @@ import {
   type ProductImportRow,
   validateProductsCsv,
 } from './csvValidation';
+import { readUploadedCsvText } from './uploadedFileLifecycle';
 import { type UploadedCsvFile } from './uploadMiddleware';
 
 export type ImportProductsInput = {
@@ -38,7 +38,7 @@ type ProductImportPlan = {
 export async function importProductsCsvFile(
   input: ImportProductsInput,
 ): Promise<ImportProductsResult> {
-  const csvText = await readFile(input.uploadedFile.path, 'utf8');
+  const csvText = await readUploadedCsvText(input.uploadedFile);
   const validation = validateProductsCsv(csvText);
   const plan = buildProductImportPlan(validation);
   const importJob = await createImportJobWithProducts(

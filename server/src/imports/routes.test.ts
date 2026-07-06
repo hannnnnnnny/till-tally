@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import { ImportStatus, ImportType } from '@prisma/client';
 import express, { type RequestHandler } from 'express';
 import request from 'supertest';
+import { errorHandler } from '../http/errorMiddleware';
 import { createRateLimiter } from '../http/rateLimit';
 import { createImportRouter, type ImportRouterDependencies } from './importRouterFactory';
 import { type ImportJobDetail, type ImportJobsListResult } from './importJobService';
@@ -120,6 +121,53 @@ describe('import routes', () => {
       },
     });
   });
+
+  it('cleans uploaded files after a successful CSV import', async () => {
+    const cleanedPaths: string[] = [];
+    const app = createTestApp({
+      cleanupUploadedFile: async (uploadedFile) => {
+        cleanedPaths.push(uploadedFile.path);
+      },
+      uploadCsvFile: (req, _res, next) => {
+        req.uploadedCsvFile = createUploadedCsvFile('C:/tmp/orders.csv');
+        next();
+      },
+    });
+
+    await request(app).post('/api/import/orders').expect(201);
+
+    assert.deepEqual(cleanedPaths, ['C:/tmp/orders.csv']);
+  });
+
+  it('cleans uploaded files when a CSV import fails unexpectedly', async () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'test';
+    const cleanedPaths: string[] = [];
+    const app = createTestApp({
+      cleanupUploadedFile: async (uploadedFile) => {
+        cleanedPaths.push(uploadedFile.path);
+      },
+      importOrdersCsvFile: async () => {
+        throw new Error('import failed after upload');
+      },
+      uploadCsvFile: (req, _res, next) => {
+        req.uploadedCsvFile = createUploadedCsvFile('C:/tmp/orders.csv');
+        next();
+      },
+    });
+
+    try {
+      await request(app).post('/api/import/orders').expect(500);
+    } finally {
+      if (previousNodeEnv === undefined) {
+        delete process.env.NODE_ENV;
+      } else {
+        process.env.NODE_ENV = previousNodeEnv;
+      }
+    }
+
+    assert.deepEqual(cleanedPaths, ['C:/tmp/orders.csv']);
+  });
 });
 
 function createTestApp(overrides: Partial<ImportRouterDependencies>): express.Express {
@@ -127,6 +175,7 @@ function createTestApp(overrides: Partial<ImportRouterDependencies>): express.Ex
 
   app.use(express.json());
   app.use('/api/import', createImportRouter({ ...createDefaultDependencies(), ...overrides }));
+  app.use(errorHandler);
 
   return app;
 }
@@ -136,6 +185,7 @@ function createDefaultDependencies(): ImportRouterDependencies {
     requireAuth: createAuthMiddleware(),
     requireBusinessAccess: createBusinessAccessMiddleware(),
     uploadCsvFile: (_req, _res, next) => next(),
+    cleanupUploadedFile: async () => undefined,
     listImportJobs: async () => createImportJobsListResult(),
     getImportJobDetail: async () => createImportJobDetail(),
     importOrdersCsvFile: async () => ({
@@ -172,6 +222,17 @@ function createBusinessAccessMiddleware(): RequestHandler {
   return (req, _res, next) => {
     req.businessId = 'business-1';
     next();
+  };
+}
+
+function createUploadedCsvFile(filePath: string) {
+  return {
+    fieldName: 'file',
+    fileName: 'orders.csv',
+    mimeType: 'text/csv',
+    originalName: 'orders.csv',
+    path: filePath,
+    size: 128,
   };
 }
 
