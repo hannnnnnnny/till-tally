@@ -6,13 +6,19 @@ describe('container healthcheck client', () => {
   it('passes only when the readiness endpoint returns a successful response', async () => {
     const fetcher = createFetch({ ok: true });
 
-    assert.equal(await checkHealthcheckUrl('http://127.0.0.1:4000/api/health/ready', fetcher), true);
+    assert.equal(
+      await checkHealthcheckUrl('http://127.0.0.1:4000/api/health/ready', fetcher),
+      true,
+    );
   });
 
   it('fails when the readiness endpoint returns an unhealthy response', async () => {
     const fetcher = createFetch({ ok: false });
 
-    assert.equal(await checkHealthcheckUrl('http://127.0.0.1:4000/api/health/ready', fetcher), false);
+    assert.equal(
+      await checkHealthcheckUrl('http://127.0.0.1:4000/api/health/ready', fetcher),
+      false,
+    );
   });
 
   it('fails when the readiness endpoint cannot be reached', async () => {
@@ -20,7 +26,10 @@ describe('container healthcheck client', () => {
       throw new Error('connection refused');
     };
 
-    assert.equal(await checkHealthcheckUrl('http://127.0.0.1:4000/api/health/ready', fetcher), false);
+    assert.equal(
+      await checkHealthcheckUrl('http://127.0.0.1:4000/api/health/ready', fetcher),
+      false,
+    );
   });
 });
 

@@ -537,7 +537,9 @@ function mapRowValues(headers: string[], row: string[]): Map<string, string> {
   return values;
 }
 
-function buildHeaderAliases(aliasesByColumn: Record<string, readonly string[]>): Map<string, string> {
+function buildHeaderAliases(
+  aliasesByColumn: Record<string, readonly string[]>,
+): Map<string, string> {
   const aliases = new Map<string, string>();
 
   for (const [canonicalColumn, aliasColumns] of Object.entries(aliasesByColumn)) {

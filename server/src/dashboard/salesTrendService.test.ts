@@ -1,9 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import {
-  calculateSalesTrend,
-  parseSalesTrendQuery,
-} from './salesTrendService';
+import { calculateSalesTrend, parseSalesTrendQuery } from './salesTrendService';
 import { DashboardDateRangeError } from './summaryService';
 
 describe('sales trend service', () => {

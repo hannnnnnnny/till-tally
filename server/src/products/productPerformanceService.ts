@@ -151,7 +151,9 @@ export function parseProductPerformanceQuery(
   assertSupportedQuery(query);
 
   const to = parseOptionalDate('to', readQueryString(query, 'to')) ?? startOfUtcDay(now);
-  const from = parseOptionalDate('from', readQueryString(query, 'from')) ?? addUtcDays(to, -(DEFAULT_DAYS - 1));
+  const from =
+    parseOptionalDate('from', readQueryString(query, 'from')) ??
+    addUtcDays(to, -(DEFAULT_DAYS - 1));
 
   if (from > to) {
     throw new ProductPerformanceQueryError('from must be before or equal to to');
@@ -163,7 +165,10 @@ export function parseProductPerformanceQuery(
       to,
     },
     page: parsePositiveInteger(readQueryString(query, 'page'), DEFAULT_PAGE),
-    pageSize: Math.min(parsePositiveInteger(readQueryString(query, 'pageSize'), DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE),
+    pageSize: Math.min(
+      parsePositiveInteger(readQueryString(query, 'pageSize'), DEFAULT_PAGE_SIZE),
+      MAX_PAGE_SIZE,
+    ),
     sort: parseSort(readQueryString(query, 'sort')),
     order: parseOrder(readQueryString(query, 'order')),
     search: readQueryString(query, 'search'),
@@ -181,7 +186,9 @@ export function calculateProductPerformance(
   >,
 ): ProductPerformanceResult {
   const rankedProducts = rankProducts(products, query.now);
-  const filteredProducts = rankedProducts.filter((product) => matchesProductFilters(product, query));
+  const filteredProducts = rankedProducts.filter((product) =>
+    matchesProductFilters(product, query),
+  );
   const sortedProducts = sortProducts(filteredProducts, query.sort, query.order);
   const start = (query.page - 1) * query.pageSize;
   const paginatedProducts = sortedProducts.slice(start, start + query.pageSize);
@@ -203,7 +210,8 @@ export function buildProductDetail(
   products: ProductPerformanceSource[] = [product],
 ): ProductDetail {
   const rankedProduct =
-    rankProducts(products, now).find((candidate) => candidate.id === product.id) ?? rankProducts([product], now)[0];
+    rankProducts(products, now).find((candidate) => candidate.id === product.id) ??
+    rankProducts([product], now)[0];
 
   return {
     ...toPerformanceItem(rankedProduct),
@@ -268,7 +276,9 @@ function rankProducts(products: ProductPerformanceSource[], now: Date): ProductM
   let cumulativeRevenuePct = 0;
 
   return metrics
-    .sort((first, second) => second.revenue - first.revenue || first.name.localeCompare(second.name))
+    .sort(
+      (first, second) => second.revenue - first.revenue || first.name.localeCompare(second.name),
+    )
     .map((product, index) => {
       const { rawCumulativeRevenuePct, ...abcMetrics } = calculateAbcMetrics(
         product.revenue,
@@ -313,7 +323,13 @@ function toProductMetrics(product: ProductPerformanceSource, now: Date): Product
 
   const grossProfit = revenue - cost;
   const grossMarginPct = revenue > 0 ? (grossProfit / revenue) * 100 : 0;
-  const baseLabels = createProductLabels(product.currentStock, product.lastSoldAt, unitsSold, grossMarginPct, now);
+  const baseLabels = createProductLabels(
+    product.currentStock,
+    product.lastSoldAt,
+    unitsSold,
+    grossMarginPct,
+    now,
+  );
 
   return {
     id: product.id,
@@ -396,7 +412,8 @@ function createProductLabels(
   const labels: ProductLabel[] = [];
   const hasHighMargin = grossMarginPct >= HIGH_MARGIN_THRESHOLD && unitsSold > 0;
   const daysSinceLastSale = lastSoldAt ? daysBetween(lastSoldAt, now) : null;
-  const isDeadStock = currentStock > 0 && (daysSinceLastSale === null || daysSinceLastSale >= DEAD_STOCK_DAYS);
+  const isDeadStock =
+    currentStock > 0 && (daysSinceLastSale === null || daysSinceLastSale >= DEAD_STOCK_DAYS);
   const isSlowMover =
     currentStock > 0 &&
     !isDeadStock &&
@@ -451,7 +468,10 @@ function matchesProductFilters(
     return false;
   }
 
-  if (query.status && !product.labels.some((label) => label.toLowerCase() === query.status?.toLowerCase())) {
+  if (
+    query.status &&
+    !product.labels.some((label) => label.toLowerCase() === query.status?.toLowerCase())
+  ) {
     return false;
   }
 
@@ -466,7 +486,8 @@ function sortProducts(
   const sortedProducts = [...products].sort((first, second) => {
     const firstValue = getSortValue(first, sort);
     const secondValue = getSortValue(second, sort);
-    const comparison = firstValue === secondValue ? first.name.localeCompare(second.name) : firstValue - secondValue;
+    const comparison =
+      firstValue === secondValue ? first.name.localeCompare(second.name) : firstValue - secondValue;
 
     return order === 'asc' ? comparison : -comparison;
   });

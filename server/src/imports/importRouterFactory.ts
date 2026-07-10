@@ -46,17 +46,22 @@ export function createImportRouter(dependencies: ImportRouterDependencies): Rout
   const router = Router();
   const cleanupUploadedFile = dependencies.cleanupUploadedFile ?? deleteUploadedCsvFile;
 
-  router.get('/jobs', dependencies.requireAuth, dependencies.requireBusinessAccess, asyncHandler(async (req, res) => {
-    if (!req.businessId) {
-      sendImportError(res, 403, 'NO_BUSINESS_ACCESS', 'Missing business context');
-      return;
-    }
+  router.get(
+    '/jobs',
+    dependencies.requireAuth,
+    dependencies.requireBusinessAccess,
+    asyncHandler(async (req, res) => {
+      if (!req.businessId) {
+        sendImportError(res, 403, 'NO_BUSINESS_ACCESS', 'Missing business context');
+        return;
+      }
 
-    const pagination = parseImportJobPagination(req.query);
-    const result = await dependencies.listImportJobs(req.businessId, pagination);
+      const pagination = parseImportJobPagination(req.query);
+      const result = await dependencies.listImportJobs(req.businessId, pagination);
 
-    res.json(result);
-  }));
+      res.json(result);
+    }),
+  );
 
   router.get(
     '/jobs/:id',

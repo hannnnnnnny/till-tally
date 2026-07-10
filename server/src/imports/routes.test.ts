@@ -17,15 +17,13 @@ type ErrorResponse = {
 
 describe('import routes', () => {
   it('returns paginated import job history for the active business', async () => {
-    let capturedRequest:
-      | {
-          businessId: string;
-          page: number;
-          pageSize: number;
-          skip: number;
-          take: number;
-        }
-      | null = null;
+    let capturedRequest: {
+      businessId: string;
+      page: number;
+      pageSize: number;
+      skip: number;
+      take: number;
+    } | null = null;
 
     const app = createTestApp({
       listImportJobs: async (businessId, pagination) => {
@@ -41,9 +39,7 @@ describe('import routes', () => {
       },
     });
 
-    const response = await request(app)
-      .get('/api/import/jobs?page=2&pageSize=5')
-      .expect(200);
+    const response = await request(app).get('/api/import/jobs?page=2&pageSize=5').expect(200);
 
     assert.deepEqual(capturedRequest, {
       businessId: 'business-1',
@@ -56,12 +52,10 @@ describe('import routes', () => {
   });
 
   it('returns import job detail with structured errors', async () => {
-    let capturedRequest:
-      | {
-          businessId: string;
-          jobId: string;
-        }
-      | null = null;
+    let capturedRequest: {
+      businessId: string;
+      jobId: string;
+    } | null = null;
 
     const app = createTestApp({
       getImportJobDetail: async (businessId, jobId) => {

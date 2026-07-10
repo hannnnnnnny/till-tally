@@ -126,8 +126,9 @@ describe('weekly report service', () => {
   });
 
   it('returns the latest report when week start is omitted', async () => {
-    let capturedFindFirst: Parameters<WeeklyReportPrismaClient['weeklyReport']['findFirst']>[0] | null =
-      null;
+    let capturedFindFirst:
+      | Parameters<WeeklyReportPrismaClient['weeklyReport']['findFirst']>[0]
+      | null = null;
     const db = createReadOnlyDb({
       findFirst: async (input) => {
         capturedFindFirst = input;
@@ -223,7 +224,9 @@ function createProducts(): WeeklyReportProductSource[] {
   ];
 }
 
-function createReadOnlyDb(overrides: Pick<WeeklyReportPrismaClient['weeklyReport'], 'findFirst'>): WeeklyReportPrismaClient {
+function createReadOnlyDb(
+  overrides: Pick<WeeklyReportPrismaClient['weeklyReport'], 'findFirst'>,
+): WeeklyReportPrismaClient {
   return {
     order: {
       findMany: async () => [],

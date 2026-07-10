@@ -3,6 +3,8 @@ dist
 build
 coverage
 package-lock.json
+output
+tmp
 
 # Authored prose / design docs (hand-formatted tables, not auto-formatted)
 docs

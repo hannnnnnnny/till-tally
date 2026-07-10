@@ -57,10 +57,16 @@ export function calculateChannelBreakdown(orders: ChannelBreakdownOrder[]): Chan
         revenue: roundTo(metrics.revenue, 2),
         orders: metrics.orders,
         averageOrderValue: roundTo(metrics.orders > 0 ? metrics.revenue / metrics.orders : 0, 2),
-        grossMarginPct: roundTo(metrics.revenue > 0 ? (metrics.grossProfit / metrics.revenue) * 100 : 0, 2),
+        grossMarginPct: roundTo(
+          metrics.revenue > 0 ? (metrics.grossProfit / metrics.revenue) * 100 : 0,
+          2,
+        ),
         unitsSold: metrics.unitsSold,
       }))
-      .sort((first, second) => second.revenue - first.revenue || first.channel.localeCompare(second.channel)),
+      .sort(
+        (first, second) =>
+          second.revenue - first.revenue || first.channel.localeCompare(second.channel),
+      ),
   };
 }
 

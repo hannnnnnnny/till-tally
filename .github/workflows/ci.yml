@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   build:
-    name: install · lint · typecheck · test · build
+    name: install / format / lint / typecheck / test / build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -30,6 +30,14 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: Validate Prisma schema
+        run: npm run prisma:validate -w server
+        env:
+          DATABASE_URL: postgresql://tilltally:tilltally@localhost:5432/tilltally?schema=public
 
       - name: Generate Prisma client
         run: npm run prisma:generate -w server

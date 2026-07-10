@@ -50,7 +50,9 @@ export function parseSalesTrendQuery(
   const rawTo = readQueryString(query, 'to');
   const to = rawTo ? parseDateOnly('to', rawTo) : startOfUtcDay(now);
   const rawFrom = readQueryString(query, 'from');
-  const from = rawFrom ? parseDateOnly('from', rawFrom) : addUtcDays(to, -(DEFAULT_DASHBOARD_DAYS - 1));
+  const from = rawFrom
+    ? parseDateOnly('from', rawFrom)
+    : addUtcDays(to, -(DEFAULT_DASHBOARD_DAYS - 1));
 
   if (from > to) {
     throw new DashboardDateRangeError('from must be before or equal to to');

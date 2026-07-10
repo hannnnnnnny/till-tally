@@ -76,7 +76,11 @@ export function createProductsRouter(routerDependencies: ProductsRouterDependenc
       }
 
       try {
-        const result = await routerDependencies.getProductDetail(req.businessId, req.params.id, req.query);
+        const result = await routerDependencies.getProductDetail(
+          req.businessId,
+          req.params.id,
+          req.query,
+        );
 
         if (!result) {
           sendProductError(res, 404, 'NOT_FOUND', 'Product not found');

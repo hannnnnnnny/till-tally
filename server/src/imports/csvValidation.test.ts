@@ -24,7 +24,8 @@ WJ-001,Womens Jacket,38.50,Outerwear,Local Supplier`);
   });
 
   it('maps product header aliases before validation', () => {
-    const result = validateProductsCsv(`Product Name,Item SKU,Cost,Stock,Supplier,Last Sold,Product Category
+    const result =
+      validateProductsCsv(`Product Name,Item SKU,Cost,Stock,Supplier,Last Sold,Product Category
 Womens Jacket,WJ-001,38.50,12,Local Supplier,2026-06-20,Outerwear`);
 
     assert.equal(result.errors.length, 0);

@@ -2,10 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import express, { type RequestHandler } from 'express';
 import request from 'supertest';
-import {
-  createInventoryRouter,
-  type InventoryRouterDependencies,
-} from './inventoryRouterFactory';
+import { createInventoryRouter, type InventoryRouterDependencies } from './inventoryRouterFactory';
 import {
   InventoryRiskQueryError,
   type InventoryInsights,
@@ -22,12 +19,10 @@ type ErrorResponse = {
 
 describe('inventory routes', () => {
   it('returns inventory insights for the active business', async () => {
-    let capturedRequest:
-      | {
-          businessId: string;
-          query: InventoryRiskQueryInput;
-        }
-      | null = null;
+    let capturedRequest: {
+      businessId: string;
+      query: InventoryRiskQueryInput;
+    } | null = null;
 
     const app = createTestApp({
       getInventoryInsights: async (businessId, query) => {
@@ -40,9 +35,7 @@ describe('inventory routes', () => {
       },
     });
 
-    const response = await request(app)
-      .get('/api/inventory/insights?to=2026-07-03')
-      .expect(200);
+    const response = await request(app).get('/api/inventory/insights?to=2026-07-03').expect(200);
 
     assert.deepEqual(capturedRequest, {
       businessId: 'business-1',
@@ -70,12 +63,10 @@ describe('inventory routes', () => {
   });
 
   it('returns paginated low-stock products with the threshold query alias', async () => {
-    let capturedRequest:
-      | {
-          businessId: string;
-          query: InventoryRiskQueryInput;
-        }
-      | null = null;
+    let capturedRequest: {
+      businessId: string;
+      query: InventoryRiskQueryInput;
+    } | null = null;
 
     const app = createTestApp({
       getInventoryInsights: async (businessId, query) => {
@@ -110,12 +101,10 @@ describe('inventory routes', () => {
   });
 
   it('returns paginated slow movers with the days query alias', async () => {
-    let capturedRequest:
-      | {
-          businessId: string;
-          query: InventoryRiskQueryInput;
-        }
-      | null = null;
+    let capturedRequest: {
+      businessId: string;
+      query: InventoryRiskQueryInput;
+    } | null = null;
 
     const app = createTestApp({
       getInventoryInsights: async (businessId, query) => {
@@ -164,7 +153,10 @@ function createTestApp(overrides: Partial<InventoryRouterDependencies>): express
   const app = express();
 
   app.use(express.json());
-  app.use('/api/inventory', createInventoryRouter({ ...createDefaultDependencies(), ...overrides }));
+  app.use(
+    '/api/inventory',
+    createInventoryRouter({ ...createDefaultDependencies(), ...overrides }),
+  );
 
   return app;
 }

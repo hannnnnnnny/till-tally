@@ -34,12 +34,10 @@ describe('reports routes', () => {
   });
 
   it('returns an existing weekly report for the active business', async () => {
-    let capturedRequest:
-      | {
-          businessId: string;
-          weekStart: unknown;
-        }
-      | null = null;
+    let capturedRequest: {
+      businessId: string;
+      weekStart: unknown;
+    } | null = null;
     const app = createTestApp({
       getWeeklyReport: async (businessId, query) => {
         capturedRequest = {
@@ -73,12 +71,10 @@ describe('reports routes', () => {
   });
 
   it('generates a weekly report for the active business', async () => {
-    let capturedRequest:
-      | {
-          businessId: string;
-          weekStart: unknown;
-        }
-      | null = null;
+    let capturedRequest: {
+      businessId: string;
+      weekStart: unknown;
+    } | null = null;
     const app = createTestApp({
       generateWeeklyReport: async (businessId, input) => {
         capturedRequest = {

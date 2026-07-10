@@ -202,7 +202,8 @@ function buildInventoryRiskItem(
 ): InventoryRiskItem {
   const unitsSoldLast30 = product.orderItems.reduce((total, item) => total + item.quantity, 0);
   const dailySalesRate = unitsSoldLast30 / query.salesWindowDays;
-  const daysOfStockLeft = dailySalesRate > 0 ? Math.ceil(product.currentStock / dailySalesRate) : null;
+  const daysOfStockLeft =
+    dailySalesRate > 0 ? Math.ceil(product.currentStock / dailySalesRate) : null;
   const labels = createInventoryRiskLabels(product, unitsSoldLast30, daysOfStockLeft, query);
 
   return {

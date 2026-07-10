@@ -70,7 +70,9 @@ export function parseDashboardDateRange(
   const rawTo = readQueryString(query, 'to');
   const to = rawTo ? parseDateOnly('to', rawTo) : startOfUtcDay(now);
   const rawFrom = readQueryString(query, 'from');
-  const from = rawFrom ? parseDateOnly('from', rawFrom) : addUtcDays(to, -(DEFAULT_DASHBOARD_DAYS - 1));
+  const from = rawFrom
+    ? parseDateOnly('from', rawFrom)
+    : addUtcDays(to, -(DEFAULT_DASHBOARD_DAYS - 1));
 
   if (from > to) {
     throw new DashboardDateRangeError('from must be before or equal to to');
@@ -93,7 +95,8 @@ export function calculateDashboardSummary(
     items: orders.flatMap((order) => order.items),
     lowStockItems: products.filter((product) => product.currentStock <= LOW_STOCK_THRESHOLD).length,
     slowMovers: products.filter(
-      (product) => product.currentStock > 0 && (!product.lastSoldAt || product.lastSoldAt < range.from),
+      (product) =>
+        product.currentStock > 0 && (!product.lastSoldAt || product.lastSoldAt < range.from),
     ).length,
   });
 }
