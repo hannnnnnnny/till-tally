@@ -12,8 +12,9 @@
 #   server  Express API          -> localhost:4000  (GET /api/health)
 #   client  React build (nginx)  -> localhost:8080
 #
-# Credentials default to dev-only values and match server/.env.example.
-# Override via a root .env file or shell environment variables.
+# Database credentials default to dev-only values and match server/.env.example.
+# Server JWT defaults are intentionally invalid for production and must be
+# overridden via a root .env file or shell environment variables.
 
 services:
   db:
