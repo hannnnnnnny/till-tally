@@ -3,6 +3,7 @@ import path from 'node:path';
 import { ImportStatus, ImportType, PrismaClient, Role, SalesChannel } from '@prisma/client';
 import { parse as parseCsv } from 'csv-parse/sync';
 import { hashPassword } from '../src/auth/password';
+import { assertSeedIsAllowed } from '../src/db/seedSafety';
 
 const prisma = new PrismaClient();
 
@@ -54,6 +55,8 @@ type InventorySnapshotCsvRow = {
 };
 
 async function main() {
+  assertSeedIsAllowed();
+
   const [products, orders, orderItems, inventorySnapshots] = await Promise.all([
     readSampleCsv<ProductCsvRow>('products.csv'),
     readSampleCsv<OrderCsvRow>('orders.csv'),

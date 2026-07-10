@@ -144,6 +144,9 @@ npm run db:seed
 This creates the demo user, business workspace, products, orders, inventory snapshots,
 and import jobs from `sample-data/*.csv`.
 
+The seed script is blocked when `NODE_ENV=production` unless
+`ALLOW_PRODUCTION_SEED=true` is set for an intentional one-off demo data reset.
+
 ### Run in Development
 
 ```bash
