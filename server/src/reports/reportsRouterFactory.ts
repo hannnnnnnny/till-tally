@@ -11,6 +11,7 @@ import {
 export type ReportsRouterDependencies = {
   requireAuth: RequestHandler;
   requireBusinessAccess: RequestHandler;
+  reportRateLimit?: RequestHandler;
   getWeeklyReport: (
     businessId: string,
     query: WeeklyReportQueryInput,
@@ -44,7 +45,7 @@ function sendReportError(
 export function createReportsRouter(dependencies: ReportsRouterDependencies): Router {
   const router = Router();
 
-  router.get('/weekly', dependencies.requireAuth, dependencies.requireBusinessAccess, asyncHandler(async (req, res) => {
+  router.get('/weekly', dependencies.requireAuth, dependencies.requireBusinessAccess, dependencies.reportRateLimit ?? passthrough, asyncHandler(async (req, res) => {
     if (!req.businessId) {
       sendReportError(res, 403, 'NO_BUSINESS_ACCESS', 'Missing business context');
       return;
@@ -83,6 +84,7 @@ export function createReportsRouter(dependencies: ReportsRouterDependencies): Ro
     '/weekly/generate',
     dependencies.requireAuth,
     dependencies.requireBusinessAccess,
+    dependencies.reportRateLimit ?? passthrough,
     asyncHandler(async (req, res) => {
       if (!req.businessId) {
         sendReportError(res, 403, 'NO_BUSINESS_ACCESS', 'Missing business context');
@@ -116,3 +118,5 @@ export function createReportsRouter(dependencies: ReportsRouterDependencies): Ro
 
   return router;
 }
+
+const passthrough: RequestHandler = (_req, _res, next) => next();
