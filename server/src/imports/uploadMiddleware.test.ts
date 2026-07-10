@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import assert from 'node:assert/strict';
@@ -74,6 +74,59 @@ describe('CSV upload middleware', () => {
 
     assert.equal(body.error.code, 'UNSUPPORTED_MEDIA_TYPE');
     assert.equal(body.error.message, 'Upload must be a text/csv file');
+  });
+
+  it('rejects text/csv uploads without a csv filename', async (t) => {
+    const uploadDir = await createTempUploadDir(t);
+    const app = createTestApp(uploadDir);
+
+    const response = await request(app)
+      .post('/upload')
+      .attach('file', Buffer.from('sku,name\nWJ-001,Jacket\n'), {
+        filename: 'orders.txt',
+        contentType: 'text/csv',
+      })
+      .expect(415);
+    const body = response.body as ErrorResponse;
+
+    assert.equal(body.error.code, 'UNSUPPORTED_MEDIA_TYPE');
+    assert.equal(body.error.message, 'Upload must use a .csv filename');
+  });
+
+  it('rejects empty CSV uploads and removes the temporary file', async (t) => {
+    const uploadDir = await createTempUploadDir(t);
+    const app = createTestApp(uploadDir);
+
+    const response = await request(app)
+      .post('/upload')
+      .attach('file', Buffer.from(''), {
+        filename: 'orders.csv',
+        contentType: 'text/csv',
+      })
+      .expect(400);
+    const body = response.body as ErrorResponse;
+
+    assert.equal(body.error.code, 'BAD_CSV_FORMAT');
+    assert.equal(body.error.message, 'CSV file is empty');
+    assert.deepEqual(await readdir(uploadDir), []);
+  });
+
+  it('rejects binary CSV uploads and removes the temporary file', async (t) => {
+    const uploadDir = await createTempUploadDir(t);
+    const app = createTestApp(uploadDir);
+
+    const response = await request(app)
+      .post('/upload')
+      .attach('file', Buffer.from([0x73, 0x6b, 0x75, 0x00, 0x6e, 0x61, 0x6d, 0x65]), {
+        filename: 'orders.csv',
+        contentType: 'text/csv',
+      })
+      .expect(415);
+    const body = response.body as ErrorResponse;
+
+    assert.equal(body.error.code, 'UNSUPPORTED_MEDIA_TYPE');
+    assert.equal(body.error.message, 'Upload must be a plain-text CSV file');
+    assert.deepEqual(await readdir(uploadDir), []);
   });
 
   it('rejects files over the configured size limit', async (t) => {

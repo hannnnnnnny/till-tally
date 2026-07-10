@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, open, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { type NextFunction, type Request, type Response } from 'express';
 import multer, { MulterError } from 'multer';
@@ -29,6 +29,7 @@ type CsvUploadErrorCode = 'BAD_CSV_FORMAT' | 'FILE_TOO_LARGE' | 'UNSUPPORTED_MED
 const CSV_UPLOAD_FIELD_NAME = 'file';
 const CSV_MIME_TYPE = 'text/csv';
 const DEFAULT_MAX_UPLOAD_SIZE_MB = 25;
+const CSV_CONTENT_SAMPLE_BYTES = 4096;
 
 class CsvUploadError extends Error {
   constructor(
@@ -74,6 +75,13 @@ export function createCsvUploadMiddleware(
         return;
       }
 
+      if (!hasCsvFileExtension(file.originalname)) {
+        callback(
+          new CsvUploadError(415, 'UNSUPPORTED_MEDIA_TYPE', 'Upload must use a .csv filename'),
+        );
+        return;
+      }
+
       callback(null, true);
     },
     limits: {
@@ -94,18 +102,41 @@ export function createCsvUploadMiddleware(
         return;
       }
 
-      req.uploadedCsvFile = {
-        fieldName: req.file.fieldname,
-        originalName: sanitizeOriginalFilename(req.file.originalname),
-        fileName: req.file.filename,
-        path: req.file.path,
-        mimeType: req.file.mimetype,
-        size: req.file.size,
-      };
-
-      next();
+      void finalizeUploadedCsvFile(req, res, next).catch(() => {
+        sendUploadError(res, new CsvUploadError(400, 'BAD_CSV_FORMAT', 'Invalid CSV upload'));
+      });
     });
   };
+}
+
+async function finalizeUploadedCsvFile(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  if (!req.file) {
+    sendUploadError(res, new CsvUploadError(400, 'BAD_CSV_FORMAT', 'A CSV file is required'));
+    return;
+  }
+
+  const contentError = await validateStoredCsvContent(req.file.path);
+
+  if (contentError) {
+    await removeStoredUpload(req.file.path);
+    sendUploadError(res, contentError);
+    return;
+  }
+
+  req.uploadedCsvFile = {
+    fieldName: req.file.fieldname,
+    originalName: sanitizeOriginalFilename(req.file.originalname),
+    fileName: req.file.filename,
+    path: req.file.path,
+    mimeType: req.file.mimetype,
+    size: req.file.size,
+  };
+
+  next();
 }
 
 function normalizeUploadError(error: unknown, maxFileSizeBytes: number): CsvUploadError {
@@ -142,6 +173,39 @@ function sanitizeOriginalFilename(originalName: string): string {
   const basename = path.basename(normalizedPath).trim();
 
   return basename || 'upload.csv';
+}
+
+function hasCsvFileExtension(originalName: string): boolean {
+  return path.extname(sanitizeOriginalFilename(originalName)).toLowerCase() === '.csv';
+}
+
+async function validateStoredCsvContent(filePath: string): Promise<CsvUploadError | null> {
+  const handle = await open(filePath, 'r');
+
+  try {
+    const buffer = Buffer.alloc(CSV_CONTENT_SAMPLE_BYTES);
+    const { bytesRead } = await handle.read(buffer, 0, CSV_CONTENT_SAMPLE_BYTES, 0);
+
+    if (bytesRead === 0) {
+      return new CsvUploadError(400, 'BAD_CSV_FORMAT', 'CSV file is empty');
+    }
+
+    if (buffer.subarray(0, bytesRead).includes(0)) {
+      return new CsvUploadError(
+        415,
+        'UNSUPPORTED_MEDIA_TYPE',
+        'Upload must be a plain-text CSV file',
+      );
+    }
+
+    return null;
+  } finally {
+    await handle.close();
+  }
+}
+
+async function removeStoredUpload(filePath: string): Promise<void> {
+  await rm(filePath, { force: true });
 }
 
 function getDefaultUploadDir(): string {
