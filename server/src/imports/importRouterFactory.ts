@@ -1,5 +1,6 @@
 import { type RequestHandler, type Response, Router } from 'express';
 import { ImportStatus } from '@prisma/client';
+import { asyncHandler } from '../http/asyncHandler';
 import {
   type ImportJobDetail,
   type ImportJobsListResult,
@@ -40,7 +41,7 @@ function sendImportError(
 export function createImportRouter(dependencies: ImportRouterDependencies): Router {
   const router = Router();
 
-  router.get('/jobs', dependencies.requireAuth, dependencies.requireBusinessAccess, async (req, res) => {
+  router.get('/jobs', dependencies.requireAuth, dependencies.requireBusinessAccess, asyncHandler(async (req, res) => {
     if (!req.businessId) {
       sendImportError(res, 403, 'NO_BUSINESS_ACCESS', 'Missing business context');
       return;
@@ -50,13 +51,13 @@ export function createImportRouter(dependencies: ImportRouterDependencies): Rout
     const result = await dependencies.listImportJobs(req.businessId, pagination);
 
     res.json(result);
-  });
+  }));
 
   router.get(
     '/jobs/:id',
     dependencies.requireAuth,
     dependencies.requireBusinessAccess,
-    async (req, res) => {
+    asyncHandler(async (req, res) => {
       if (!req.businessId) {
         sendImportError(res, 403, 'NO_BUSINESS_ACCESS', 'Missing business context');
         return;
@@ -70,7 +71,7 @@ export function createImportRouter(dependencies: ImportRouterDependencies): Rout
       }
 
       res.json(result);
-    },
+    }),
   );
 
   router.post(
@@ -78,7 +79,7 @@ export function createImportRouter(dependencies: ImportRouterDependencies): Rout
     dependencies.requireAuth,
     dependencies.requireBusinessAccess,
     dependencies.uploadCsvFile,
-    async (req, res) => {
+    asyncHandler(async (req, res) => {
       if (!req.businessId) {
         sendImportError(res, 403, 'NO_BUSINESS_ACCESS', 'Missing business context');
         return;
@@ -95,7 +96,7 @@ export function createImportRouter(dependencies: ImportRouterDependencies): Rout
       });
 
       res.status(result.status === ImportStatus.FAILED ? 422 : 201).json(result);
-    },
+    }),
   );
 
   router.post(
@@ -103,7 +104,7 @@ export function createImportRouter(dependencies: ImportRouterDependencies): Rout
     dependencies.requireAuth,
     dependencies.requireBusinessAccess,
     dependencies.uploadCsvFile,
-    async (req, res) => {
+    asyncHandler(async (req, res) => {
       if (!req.businessId) {
         sendImportError(res, 403, 'NO_BUSINESS_ACCESS', 'Missing business context');
         return;
@@ -120,7 +121,7 @@ export function createImportRouter(dependencies: ImportRouterDependencies): Rout
       });
 
       res.status(result.status === ImportStatus.FAILED ? 422 : 201).json(result);
-    },
+    }),
   );
 
   return router;

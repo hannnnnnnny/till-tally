@@ -1,5 +1,6 @@
 import { type RequestHandler, type Response, Router } from 'express';
 import { isPrismaMissingTableError } from '../db/migrationDrift';
+import { asyncHandler } from '../http/asyncHandler';
 import {
   type GenerateWeeklyReportInput,
   type WeeklyReportQueryInput,
@@ -43,7 +44,7 @@ function sendReportError(
 export function createReportsRouter(dependencies: ReportsRouterDependencies): Router {
   const router = Router();
 
-  router.get('/weekly', dependencies.requireAuth, dependencies.requireBusinessAccess, async (req, res) => {
+  router.get('/weekly', dependencies.requireAuth, dependencies.requireBusinessAccess, asyncHandler(async (req, res) => {
     if (!req.businessId) {
       sendReportError(res, 403, 'NO_BUSINESS_ACCESS', 'Missing business context');
       return;
@@ -76,13 +77,13 @@ export function createReportsRouter(dependencies: ReportsRouterDependencies): Ro
 
       throw error;
     }
-  });
+  }));
 
   router.post(
     '/weekly/generate',
     dependencies.requireAuth,
     dependencies.requireBusinessAccess,
-    async (req, res) => {
+    asyncHandler(async (req, res) => {
       if (!req.businessId) {
         sendReportError(res, 403, 'NO_BUSINESS_ACCESS', 'Missing business context');
         return;
@@ -110,7 +111,7 @@ export function createReportsRouter(dependencies: ReportsRouterDependencies): Ro
 
         throw error;
       }
-    },
+    }),
   );
 
   return router;

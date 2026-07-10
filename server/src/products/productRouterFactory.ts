@@ -1,4 +1,5 @@
 import { type RequestHandler, type Response, Router } from 'express';
+import { asyncHandler } from '../http/asyncHandler';
 import {
   ProductPerformanceQueryError,
   type ProductDetail,
@@ -43,7 +44,7 @@ export function createProductsRouter(routerDependencies: ProductsRouterDependenc
     '/performance',
     routerDependencies.requireAuth,
     routerDependencies.requireBusinessAccess,
-    async (req, res) => {
+    asyncHandler(async (req, res) => {
       if (!req.businessId) {
         sendProductError(res, 403, 'NO_BUSINESS_ACCESS', 'Missing business context');
         return;
@@ -61,14 +62,14 @@ export function createProductsRouter(routerDependencies: ProductsRouterDependenc
 
         throw error;
       }
-    },
+    }),
   );
 
   router.get(
     '/:id',
     routerDependencies.requireAuth,
     routerDependencies.requireBusinessAccess,
-    async (req, res) => {
+    asyncHandler(async (req, res) => {
       if (!req.businessId) {
         sendProductError(res, 403, 'NO_BUSINESS_ACCESS', 'Missing business context');
         return;
@@ -91,7 +92,7 @@ export function createProductsRouter(routerDependencies: ProductsRouterDependenc
 
         throw error;
       }
-    },
+    }),
   );
 
   return router;
