@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import jwt, { type JwtPayload, type SignOptions } from 'jsonwebtoken';
 import { env } from '../config/env';
 
@@ -6,6 +7,7 @@ type TokenType = 'access' | 'refresh';
 export type AuthTokenPayload = JwtPayload & {
   sub: string;
   type: TokenType;
+  jti: string;
 };
 
 function signToken(
@@ -20,6 +22,7 @@ function signToken(
 
   return jwt.sign(
     {
+      jti: randomUUID(),
       sub: userId,
       type,
     },
@@ -37,6 +40,7 @@ function verifyToken(token: string, type: TokenType, secret: string): AuthTokenP
     typeof payload !== 'object' ||
     payload === null ||
     typeof payload.sub !== 'string' ||
+    typeof payload.jti !== 'string' ||
     payload.type !== type
   ) {
     throw new Error('Invalid token');
