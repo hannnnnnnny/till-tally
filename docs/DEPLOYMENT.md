@@ -111,13 +111,23 @@ Check the API through the local client proxy:
 
 ```bash
 curl -i http://127.0.0.1:8080/api/health
+curl -i http://127.0.0.1:8080/api/health/ready
 ```
 
-Expected response:
+Expected liveness response:
 
 ```json
 {"status":"ok","service":"till-tally-api"}
 ```
+
+Expected readiness response after the API can reach PostgreSQL:
+
+```json
+{"status":"ready","service":"till-tally-api","checks":{"database":"ok"}}
+```
+
+If readiness returns `not_ready`, inspect the server logs and database health before
+putting the release behind public traffic.
 
 ## 5. Configure Host Nginx
 
@@ -215,6 +225,7 @@ docker compose --env-file .env.production -f docker-compose.prod.yml logs -f ser
 docker compose --env-file .env.production -f docker-compose.prod.yml logs -f client
 curl -I https://tilltally.example.com
 curl -i https://tilltally.example.com/api/health
+curl -i https://tilltally.example.com/api/health/ready
 ```
 
 ## Security Checklist
