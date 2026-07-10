@@ -1,6 +1,7 @@
 import { type RequestHandler, type Response, Router } from 'express';
 import { ImportStatus } from '@prisma/client';
 import { asyncHandler } from '../http/asyncHandler';
+import { deleteUploadedCsvFile } from './uploadedFileLifecycle';
 import {
   type ImportJobDetail,
   type ImportJobsListResult,
@@ -8,12 +9,14 @@ import {
 } from './importJobService';
 import { type ImportOrdersInput, type ImportOrdersResult } from './orderImportService';
 import { type ImportProductsInput, type ImportProductsResult } from './productImportService';
+import { type UploadedCsvFile } from './uploadMiddleware';
 
 export type ImportRouterDependencies = {
   requireAuth: RequestHandler;
   requireBusinessAccess: RequestHandler;
   importRateLimit?: RequestHandler;
   uploadCsvFile: RequestHandler;
+  cleanupUploadedFile?: (uploadedFile: UploadedCsvFile) => Promise<void>;
   listImportJobs: (
     businessId: string,
     pagination: ReturnType<typeof parseImportJobPagination>,
@@ -41,6 +44,7 @@ function sendImportError(
 
 export function createImportRouter(dependencies: ImportRouterDependencies): Router {
   const router = Router();
+  const cleanupUploadedFile = dependencies.cleanupUploadedFile ?? deleteUploadedCsvFile;
 
   router.get('/jobs', dependencies.requireAuth, dependencies.requireBusinessAccess, asyncHandler(async (req, res) => {
     if (!req.businessId) {
@@ -92,12 +96,18 @@ export function createImportRouter(dependencies: ImportRouterDependencies): Rout
         return;
       }
 
-      const result = await dependencies.importOrdersCsvFile({
-        businessId: req.businessId,
-        uploadedFile: req.uploadedCsvFile,
-      });
+      const uploadedFile = req.uploadedCsvFile;
 
-      res.status(result.status === ImportStatus.FAILED ? 422 : 201).json(result);
+      try {
+        const result = await dependencies.importOrdersCsvFile({
+          businessId: req.businessId,
+          uploadedFile,
+        });
+
+        res.status(result.status === ImportStatus.FAILED ? 422 : 201).json(result);
+      } finally {
+        await cleanupUploadedCsvFile(uploadedFile, cleanupUploadedFile);
+      }
     }),
   );
 
@@ -118,12 +128,18 @@ export function createImportRouter(dependencies: ImportRouterDependencies): Rout
         return;
       }
 
-      const result = await dependencies.importProductsCsvFile({
-        businessId: req.businessId,
-        uploadedFile: req.uploadedCsvFile,
-      });
+      const uploadedFile = req.uploadedCsvFile;
 
-      res.status(result.status === ImportStatus.FAILED ? 422 : 201).json(result);
+      try {
+        const result = await dependencies.importProductsCsvFile({
+          businessId: req.businessId,
+          uploadedFile,
+        });
+
+        res.status(result.status === ImportStatus.FAILED ? 422 : 201).json(result);
+      } finally {
+        await cleanupUploadedCsvFile(uploadedFile, cleanupUploadedFile);
+      }
     }),
   );
 
@@ -131,3 +147,17 @@ export function createImportRouter(dependencies: ImportRouterDependencies): Rout
 }
 
 const passthrough: RequestHandler = (_req, _res, next) => next();
+
+async function cleanupUploadedCsvFile(
+  uploadedFile: UploadedCsvFile,
+  cleanupUploadedFile: (uploadedFile: UploadedCsvFile) => Promise<void>,
+): Promise<void> {
+  try {
+    await cleanupUploadedFile(uploadedFile);
+  } catch (error) {
+    console.warn('Failed to clean uploaded CSV file', {
+      error: error instanceof Error ? error.message : 'Unknown cleanup error',
+      fileName: uploadedFile.fileName,
+    });
+  }
+}
