@@ -1,0 +1,69 @@
+export const legacyBusinessMigrationName = '20260629223930_add_business_models';
+export const currentBusinessMigrationName = '20260629120000_add_business_models';
+
+type PrismaLikeError = {
+  code?: unknown;
+  meta?: {
+    table?: unknown;
+  };
+};
+
+export function isKnownBusinessMigrationDrift(appliedMigrationNames: string[]): boolean {
+  const applied = new Set(appliedMigrationNames);
+
+  return applied.has(legacyBusinessMigrationName) && !applied.has(currentBusinessMigrationName);
+}
+
+export function getKnownMigrationDriftRepairSql(): string {
+  return `
+UPDATE "_prisma_migrations"
+SET migration_name = '${currentBusinessMigrationName}'
+WHERE migration_name = '${legacyBusinessMigrationName}'
+  AND finished_at IS NOT NULL
+  AND rolled_back_at IS NULL
+  AND NOT EXISTS (
+    SELECT 1
+    FROM "_prisma_migrations"
+    WHERE migration_name = '${currentBusinessMigrationName}'
+  );
+`.trim();
+}
+
+export function getKnownMigrationDriftCleanupSql(): string {
+  return `
+DELETE FROM "_prisma_migrations"
+WHERE migration_name = '${currentBusinessMigrationName}'
+  AND finished_at IS NULL
+  AND rolled_back_at IS NULL
+  AND logs IS NOT NULL
+  AND EXISTS (
+    SELECT 1
+    FROM "_prisma_migrations"
+    WHERE migration_name = '${legacyBusinessMigrationName}'
+      AND finished_at IS NOT NULL
+      AND rolled_back_at IS NULL
+  );
+`.trim();
+}
+
+export function isPrismaMissingTableError(error: unknown, tableName?: string): boolean {
+  if (!isObject(error)) {
+    return false;
+  }
+
+  const prismaError = error as PrismaLikeError;
+
+  if (prismaError.code !== 'P2021') {
+    return false;
+  }
+
+  if (!tableName) {
+    return true;
+  }
+
+  return typeof prismaError.meta?.table === 'string' && prismaError.meta.table.endsWith(tableName);
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
