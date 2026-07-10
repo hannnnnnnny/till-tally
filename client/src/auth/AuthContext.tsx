@@ -20,21 +20,7 @@ type AuthContextValue = {
   signOut: () => Promise<void>;
 };
 
-const ACCESS_TOKEN_STORAGE_KEY = 'till-tally.access-token';
-
 const AuthContext = createContext<AuthContextValue | null>(null);
-
-function getStoredAccessToken(): string | null {
-  return window.sessionStorage.getItem(ACCESS_TOKEN_STORAGE_KEY);
-}
-
-function storeAccessToken(accessToken: string): void {
-  window.sessionStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, accessToken);
-}
-
-function clearStoredAccessToken(): void {
-  window.sessionStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
-}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [accessToken, setAccessToken] = useState<string | null>(null);
@@ -42,14 +28,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>('loading');
 
   const applyAuthSession = useCallback((authResponse: AuthResponse) => {
-    storeAccessToken(authResponse.accessToken);
     setAccessToken(authResponse.accessToken);
     setUser(authResponse.user);
     setStatus('authenticated');
   }, []);
 
   const clearAuthSession = useCallback(() => {
-    clearStoredAccessToken();
     setAccessToken(null);
     setUser(null);
     setStatus('unauthenticated');
@@ -59,25 +43,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let isActive = true;
 
     async function restoreAuthSession() {
-      const storedAccessToken = getStoredAccessToken();
-
-      if (storedAccessToken) {
-        try {
-          const currentUser = await fetchCurrentUser(storedAccessToken);
-
-          if (!isActive) {
-            return;
-          }
-
-          setAccessToken(storedAccessToken);
-          setUser(currentUser);
-          setStatus('authenticated');
-          return;
-        } catch {
-          clearStoredAccessToken();
-        }
-      }
-
       try {
         const refreshResponse = await refreshAccessToken();
         const currentUser = await fetchCurrentUser(refreshResponse.accessToken);
@@ -86,7 +51,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        storeAccessToken(refreshResponse.accessToken);
         setAccessToken(refreshResponse.accessToken);
         setUser(currentUser);
         setStatus('authenticated');
