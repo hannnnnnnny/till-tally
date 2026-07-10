@@ -18,13 +18,11 @@ type ErrorResponse = {
 
 describe('dashboard routes', () => {
   it('returns dashboard summary KPIs for the active business', async () => {
-    let capturedRequest:
-      | {
-          businessId: string;
-          from: unknown;
-          to: unknown;
-        }
-      | null = null;
+    let capturedRequest: {
+      businessId: string;
+      from: unknown;
+      to: unknown;
+    } | null = null;
 
     const app = createTestApp({
       getDashboardSummary: async (businessId, query) => {
@@ -106,14 +104,12 @@ describe('dashboard routes', () => {
   });
 
   it('returns sales trend points for the active business', async () => {
-    let capturedRequest:
-      | {
-          businessId: string;
-          from: unknown;
-          to: unknown;
-          interval: unknown;
-        }
-      | null = null;
+    let capturedRequest: {
+      businessId: string;
+      from: unknown;
+      to: unknown;
+      interval: unknown;
+    } | null = null;
 
     const app = createTestApp({
       getDashboardSalesTrend: async (businessId, query) => {
@@ -158,13 +154,11 @@ describe('dashboard routes', () => {
   });
 
   it('returns channel breakdown metrics for the active business', async () => {
-    let capturedRequest:
-      | {
-          businessId: string;
-          from: unknown;
-          to: unknown;
-        }
-      | null = null;
+    let capturedRequest: {
+      businessId: string;
+      from: unknown;
+      to: unknown;
+    } | null = null;
 
     const app = createTestApp({
       getDashboardChannelBreakdown: async (businessId, query) => {
@@ -211,7 +205,10 @@ function createTestApp(overrides: Partial<DashboardRouterDependencies>): express
   const app = express();
 
   app.use(express.json());
-  app.use('/api/dashboard', createDashboardRouter({ ...createDefaultDependencies(), ...overrides }));
+  app.use(
+    '/api/dashboard',
+    createDashboardRouter({ ...createDefaultDependencies(), ...overrides }),
+  );
   app.use(errorHandler);
 
   return app;

@@ -1,12 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import {
-  ImportStatus,
-  ImportType,
-  PrismaClient,
-  Role,
-  SalesChannel,
-} from '@prisma/client';
+import { ImportStatus, ImportType, PrismaClient, Role, SalesChannel } from '@prisma/client';
 import { parse as parseCsv } from 'csv-parse/sync';
 import { hashPassword } from '../src/auth/password';
 

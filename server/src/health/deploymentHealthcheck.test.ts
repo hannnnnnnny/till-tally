@@ -15,7 +15,10 @@ describe('deployment healthcheck guardrails', () => {
     const productionCompose = readWorkspaceFile('docker-compose.prod.yml');
 
     assert.match(productionCompose, /server:[\s\S]*healthcheck:[\s\S]*\/api\/health\/ready/);
-    assert.match(productionCompose, /client:[\s\S]*depends_on:[\s\S]*server:[\s\S]*condition: service_healthy/);
+    assert.match(
+      productionCompose,
+      /client:[\s\S]*depends_on:[\s\S]*server:[\s\S]*condition: service_healthy/,
+    );
   });
 
   it('documents readiness checks for deployment verification', () => {

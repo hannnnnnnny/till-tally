@@ -45,40 +45,46 @@ function sendReportError(
 export function createReportsRouter(dependencies: ReportsRouterDependencies): Router {
   const router = Router();
 
-  router.get('/weekly', dependencies.requireAuth, dependencies.requireBusinessAccess, dependencies.reportRateLimit ?? passthrough, asyncHandler(async (req, res) => {
-    if (!req.businessId) {
-      sendReportError(res, 403, 'NO_BUSINESS_ACCESS', 'Missing business context');
-      return;
-    }
-
-    try {
-      const result = await dependencies.getWeeklyReport(req.businessId, req.query);
-
-      if (!result) {
-        sendReportError(res, 404, 'NOT_FOUND', 'Weekly report not found');
+  router.get(
+    '/weekly',
+    dependencies.requireAuth,
+    dependencies.requireBusinessAccess,
+    dependencies.reportRateLimit ?? passthrough,
+    asyncHandler(async (req, res) => {
+      if (!req.businessId) {
+        sendReportError(res, 403, 'NO_BUSINESS_ACCESS', 'Missing business context');
         return;
       }
 
-      res.json(result);
-    } catch (error) {
-      if (error instanceof WeeklyReportQueryError) {
-        sendReportError(res, 400, 'BAD_REPORT_QUERY', error.message);
-        return;
-      }
+      try {
+        const result = await dependencies.getWeeklyReport(req.businessId, req.query);
 
-      if (isPrismaMissingTableError(error, 'weekly_reports')) {
-        sendReportError(
-          res,
-          503,
-          'REPORTS_SCHEMA_NOT_READY',
-          'Weekly reports are unavailable until Prisma migrations have been applied.',
-        );
-        return;
-      }
+        if (!result) {
+          sendReportError(res, 404, 'NOT_FOUND', 'Weekly report not found');
+          return;
+        }
 
-      throw error;
-    }
-  }));
+        res.json(result);
+      } catch (error) {
+        if (error instanceof WeeklyReportQueryError) {
+          sendReportError(res, 400, 'BAD_REPORT_QUERY', error.message);
+          return;
+        }
+
+        if (isPrismaMissingTableError(error, 'weekly_reports')) {
+          sendReportError(
+            res,
+            503,
+            'REPORTS_SCHEMA_NOT_READY',
+            'Weekly reports are unavailable until Prisma migrations have been applied.',
+          );
+          return;
+        }
+
+        throw error;
+      }
+    }),
+  );
 
   router.post(
     '/weekly/generate',
