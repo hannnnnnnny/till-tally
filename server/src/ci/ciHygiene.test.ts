@@ -13,10 +13,18 @@ describe('CI hygiene', () => {
       'npm run lint',
       'npm run typecheck',
       'npm test --workspaces --if-present',
+      'npm run test:e2e',
       'npm run build',
     ]) {
       assert.match(workflow, new RegExp(escapeRegExp(command)));
     }
+  });
+
+  it('runs viewport regression tests with an installed Playwright browser', () => {
+    const workflow = readWorkspaceFile('.github/workflows/ci.yml');
+
+    assert.match(workflow, /npx playwright install --with-deps chromium/);
+    assert.match(workflow, /npm run test:e2e/);
   });
 
   it('keeps CI labels ASCII-clean so job names render correctly', () => {
@@ -50,6 +58,13 @@ describe('CI hygiene', () => {
 
     assert.equal(rootPackageJson.scripts['prisma:validate'], 'npm run prisma:validate -w server');
     assert.equal(serverPackageJson.scripts['prisma:validate'], 'prisma validate');
+  });
+
+  it('typechecks the Playwright configuration and browser tests', () => {
+    const rootPackageJson = JSON.parse(readWorkspaceFile('package.json')) as PackageJson;
+
+    assert.equal(rootPackageJson.scripts['typecheck:e2e'], 'tsc --noEmit -p tsconfig.e2e.json');
+    assert.match(rootPackageJson.scripts.typecheck, /npm run typecheck:e2e/);
   });
 
   it('deploys Pages only after CI succeeds and builds an explicit static preview', () => {
