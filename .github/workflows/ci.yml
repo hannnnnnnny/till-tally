@@ -52,7 +52,12 @@ jobs:
 
       - name: Test
         # Runs each workspace's test script if present; a no-op until tests exist.
-        run: npm test --workspaces --if-present
+        env:
+          NODE_ENV: test
+        run: |
+          export JWT_ACCESS_SECRET="$(openssl rand -hex 32)"
+          export JWT_REFRESH_SECRET="$(openssl rand -hex 32)"
+          npm test --workspaces --if-present
 
       - name: Build
         run: npm run build
