@@ -1,8 +1,9 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthPage } from './auth/AuthPage';
 import { useAuth } from './auth/AuthContext';
 import { ProtectedRoute } from './auth/ProtectedRoute';
 import { BusinessProvider } from './businesses/BusinessContext';
+import { runtimeConfig } from './config/runtime';
 import { LandingPage } from './landing/LandingPage';
 import { AppShell } from './layout/AppShell';
 import { DEFAULT_APP_PATH } from './navigation/routes';
@@ -16,8 +17,10 @@ import { WorkspacePage } from './pages/WorkspacePage';
 import { StatePanel } from './ui/StatePanel';
 
 export default function App() {
+  const Router = runtimeConfig.routerMode === 'hash' ? HashRouter : BrowserRouter;
+
   return (
-    <BrowserRouter>
+    <Router>
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/auth" element={<AuthRoute />} />
@@ -40,12 +43,16 @@ export default function App() {
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </BrowserRouter>
+    </Router>
   );
 }
 
 function AuthRoute() {
   const { status } = useAuth();
+
+  if (runtimeConfig.isStaticPreview) {
+    return <Navigate to="/" replace />;
+  }
 
   if (status === 'loading') {
     return (
