@@ -60,5 +60,11 @@ jobs:
           export JWT_REFRESH_SECRET="$(openssl rand -hex 32)"
           npm test --workspaces --if-present
 
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser test
+        run: npm run test:e2e
+
       - name: Build
         run: npm run build

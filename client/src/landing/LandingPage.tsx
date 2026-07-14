@@ -50,8 +50,14 @@ export function LandingPage() {
 
       <section className="relative isolate min-h-[88dvh] overflow-hidden bg-slate-50 dark:bg-slate-950">
         <div className="absolute inset-0 bg-slate-50/90 dark:bg-slate-950/90" />
-        <div className="absolute inset-x-0 bottom-0 top-20 hidden overflow-hidden opacity-55 sm:opacity-70 lg:block">
-          <div className="absolute left-1/2 top-10 w-[980px] -translate-x-[26%] sm:top-14 lg:top-20 lg:w-[1180px] lg:-translate-x-[12%]">
+        <div
+          data-testid="hero-dashboard-clip"
+          className="absolute inset-x-0 bottom-0 top-20 hidden overflow-hidden opacity-55 sm:opacity-70 lg:block"
+        >
+          <div
+            data-testid="hero-dashboard-backdrop"
+            className="absolute right-6 top-8 w-[70vw] max-w-[1180px] origin-top-right lg:right-8 lg:top-8 [@media(max-height:850px)]:top-0 [@media(max-height:850px)]:scale-[0.88]"
+          >
             <HeroDashboardPreview />
           </div>
         </div>
