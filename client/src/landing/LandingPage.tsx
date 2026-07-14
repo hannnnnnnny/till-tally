@@ -1,5 +1,7 @@
+import { type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { runtimeConfig } from '../config/runtime';
 import {
   ANALYTICS_METHODS,
   DEMO_LOGIN,
@@ -31,8 +33,16 @@ const PREVIEW_PRODUCTS = [
 export function LandingPage() {
   const { status } = useAuth();
   const isAuthenticated = status === 'authenticated';
-  const primaryTarget = isAuthenticated ? '/dashboard' : '/auth';
-  const primaryLabel = isAuthenticated ? 'Open dashboard' : 'Try demo login';
+  const primaryTarget = isAuthenticated
+    ? '/dashboard'
+    : runtimeConfig.isStaticPreview
+      ? '#preview'
+      : '/auth';
+  const primaryLabel = isAuthenticated
+    ? 'Open dashboard'
+    : runtimeConfig.isStaticPreview
+      ? 'Explore the preview'
+      : 'Try demo login';
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-slate-50">
@@ -59,18 +69,18 @@ export function LandingPage() {
               inventory.
             </p>
             <div className="mt-8 flex max-w-sm flex-col gap-3 sm:max-w-none sm:flex-row">
-              <Link
-                to={primaryTarget}
+              <PrimaryAction
+                target={primaryTarget}
                 className="inline-flex h-11 w-full items-center justify-center rounded-md bg-blue-700 px-5 text-sm font-semibold text-white shadow-sm shadow-blue-900/10 transition hover:bg-blue-800 active:translate-y-px sm:w-auto"
               >
                 {primaryLabel}
-              </Link>
-              <a
-                href="#preview"
+              </PrimaryAction>
+              <SectionAction
+                target="#preview"
                 className="inline-flex h-11 w-full items-center justify-center rounded-md border border-slate-300 bg-white/80 px-5 text-sm font-semibold text-slate-900 transition hover:bg-white active:translate-y-px dark:border-slate-600 dark:bg-slate-900/75 dark:text-white dark:hover:bg-slate-900 sm:w-auto"
               >
                 View dashboard preview
-              </a>
+              </SectionAction>
             </div>
           </div>
         </div>
@@ -87,7 +97,11 @@ export function LandingPage() {
       <footer className="border-t border-slate-200 bg-white px-4 py-8 dark:border-slate-800 dark:bg-slate-950 sm:px-6 lg:px-8">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 text-sm text-slate-500 dark:text-slate-400 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
-            <img src="/favicon.svg" alt="" className="h-8 w-8 rounded-lg" />
+            <img
+              src={runtimeConfig.assetUrl('favicon.svg')}
+              alt=""
+              className="h-8 w-8 rounded-lg"
+            />
             <span className="font-semibold text-slate-900 dark:text-white">TillTally</span>
           </div>
           <p>Retail analytics dashboard for CSV-first small retailers.</p>
@@ -112,7 +126,7 @@ function LandingNav({
           className="flex min-w-0 items-center gap-2 sm:gap-3"
           aria-label="TillTally home"
         >
-          <img src="/favicon.svg" alt="" className="h-9 w-9 rounded-xl" />
+          <img src={runtimeConfig.assetUrl('favicon.svg')} alt="" className="h-9 w-9 rounded-xl" />
           <span className="truncate text-base font-black text-slate-950 sm:text-lg dark:text-white">
             TillTally
           </span>
@@ -120,22 +134,24 @@ function LandingNav({
 
         <nav className="hidden items-center gap-6 md:flex" aria-label="Landing">
           {LANDING_NAV_ITEMS.map((item) => (
-            <a
+            <SectionAction
               key={item.href}
-              href={item.href}
+              target={item.href}
               className="text-sm font-medium text-slate-600 transition hover:text-slate-950 dark:text-slate-300 dark:hover:text-white"
             >
-              {item.label}
-            </a>
+              {runtimeConfig.isStaticPreview && item.href === '#demo-login'
+                ? 'Deployment'
+                : item.label}
+            </SectionAction>
           ))}
         </nav>
 
-        <Link
-          to={primaryTarget}
+        <PrimaryAction
+          target={primaryTarget}
           className="hidden h-10 shrink-0 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 active:translate-y-px dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200 sm:inline-flex"
         >
           {primaryLabel}
-        </Link>
+        </PrimaryAction>
       </div>
     </header>
   );
@@ -274,6 +290,8 @@ function StackSection() {
 }
 
 function DemoLoginSection() {
+  const isStaticPreview = runtimeConfig.isStaticPreview;
+
   return (
     <section
       id="demo-login"
@@ -285,36 +303,119 @@ function DemoLoginSection() {
             Demo data is ready to inspect.
           </h2>
           <p className="mt-4 max-w-2xl text-base leading-7 text-slate-700 dark:text-slate-200">
-            Seed data creates a demo owner and retail workspace so the dashboard can be reviewed
-            without manual setup.
+            {isStaticPreview
+              ? 'This GitHub Pages build is a frontend preview. Authentication, imports, and live analytics are available in the full Docker deployment.'
+              : 'Seed data creates a demo owner and retail workspace so the dashboard can be reviewed without manual setup.'}
           </p>
-          <Link
-            to="/auth"
-            className="mt-8 inline-flex h-11 items-center justify-center rounded-md bg-blue-700 px-5 text-sm font-semibold text-white transition hover:bg-blue-800 active:translate-y-px"
-          >
-            Go to login
-          </Link>
+          {isStaticPreview ? (
+            <a
+              href="https://github.com/hannnnnnnny/till-tally/blob/main/docs/DEPLOYMENT.md"
+              target="_blank"
+              rel="noreferrer"
+              className="mt-8 inline-flex h-11 items-center justify-center rounded-md bg-blue-700 px-5 text-sm font-semibold text-white transition hover:bg-blue-800 active:translate-y-px"
+            >
+              View deployment guide
+            </a>
+          ) : (
+            <Link
+              to="/auth"
+              className="mt-8 inline-flex h-11 items-center justify-center rounded-md bg-blue-700 px-5 text-sm font-semibold text-white transition hover:bg-blue-800 active:translate-y-px"
+            >
+              Go to login
+            </Link>
+          )}
         </div>
 
         <div className="rounded-lg border border-blue-200 bg-white p-5 dark:border-blue-900/70 dark:bg-slate-950">
-          <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">Demo login</p>
-          <dl className="mt-4 space-y-4">
-            <div>
-              <dt className="text-xs font-semibold text-slate-500 dark:text-slate-400">Email</dt>
-              <dd className="mt-1 rounded-md bg-slate-100 px-3 py-2 font-mono text-sm text-slate-900 dark:bg-slate-900 dark:text-white">
-                {DEMO_LOGIN.email}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs font-semibold text-slate-500 dark:text-slate-400">Password</dt>
-              <dd className="mt-1 rounded-md bg-slate-100 px-3 py-2 font-mono text-sm text-slate-900 dark:bg-slate-900 dark:text-white">
-                {DEMO_LOGIN.password}
-              </dd>
-            </div>
-          </dl>
+          {isStaticPreview ? (
+            <>
+              <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">
+                Static preview
+              </p>
+              <p className="mt-4 text-sm leading-6 text-slate-700 dark:text-slate-200">
+                No backend or customer data is connected to this public Pages build.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">Demo login</p>
+              <dl className="mt-4 space-y-4">
+                <div>
+                  <dt className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    Email
+                  </dt>
+                  <dd className="mt-1 rounded-md bg-slate-100 px-3 py-2 font-mono text-sm text-slate-900 dark:bg-slate-900 dark:text-white">
+                    {DEMO_LOGIN.email}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    Password
+                  </dt>
+                  <dd className="mt-1 rounded-md bg-slate-100 px-3 py-2 font-mono text-sm text-slate-900 dark:bg-slate-900 dark:text-white">
+                    {DEMO_LOGIN.password}
+                  </dd>
+                </div>
+              </dl>
+            </>
+          )}
         </div>
       </div>
     </section>
+  );
+}
+
+function PrimaryAction({
+  target,
+  className,
+  children,
+}: {
+  target: string;
+  className: string;
+  children: ReactNode;
+}) {
+  if (target.startsWith('#')) {
+    return (
+      <SectionAction target={target} className={className}>
+        {children}
+      </SectionAction>
+    );
+  }
+
+  return (
+    <Link to={target} className={className}>
+      {children}
+    </Link>
+  );
+}
+
+function SectionAction({
+  target,
+  className,
+  children,
+}: {
+  target: string;
+  className: string;
+  children: ReactNode;
+}) {
+  if (!runtimeConfig.isStaticPreview) {
+    return (
+      <a href={target} className={className}>
+        {children}
+      </a>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      className={className}
+      onClick={() =>
+        document.getElementById(target.slice(1))?.scrollIntoView({ behavior: 'smooth' })
+      }
+    >
+      {children}
+    </button>
   );
 }
 

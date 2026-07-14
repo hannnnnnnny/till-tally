@@ -7,6 +7,7 @@ import {
   useMemo,
   useState,
 } from 'react';
+import { runtimeConfig } from '../config/runtime';
 import { fetchCurrentUser, logoutRequest, refreshAccessToken, submitAuthForm } from './api';
 import { type AuthFormValues, type AuthMode, type AuthResponse, type AuthUser } from './types';
 
@@ -40,6 +41,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (!runtimeConfig.apiAvailable) {
+      clearAuthSession();
+      return;
+    }
+
     let isActive = true;
 
     async function restoreAuthSession() {

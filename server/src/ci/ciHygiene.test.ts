@@ -51,6 +51,42 @@ describe('CI hygiene', () => {
     assert.equal(rootPackageJson.scripts['prisma:validate'], 'npm run prisma:validate -w server');
     assert.equal(serverPackageJson.scripts['prisma:validate'], 'prisma validate');
   });
+
+  it('deploys Pages only after CI succeeds and builds an explicit static preview', () => {
+    const workflow = readWorkspaceFile('.github/workflows/deploy-pages.yml');
+
+    assert.match(workflow, /workflow_run:/);
+    assert.match(workflow, /workflows:\s*\[CI\]/);
+    assert.match(workflow, /conclusion\s*==\s*'success'/);
+    assert.doesNotMatch(workflow, /^\s{2}push:/m);
+    assert.match(workflow, /cancel-in-progress:\s*true/);
+    assert.match(workflow, /timeout-minutes:\s*15/);
+    assert.match(workflow, /VITE_STATIC_PREVIEW:\s*'true'/);
+    assert.match(workflow, /github\.event\.workflow_run\.head_sha/);
+  });
+
+  it('pins every GitHub Pages deployment action to an immutable commit', () => {
+    const workflow = readWorkspaceFile('.github/workflows/deploy-pages.yml');
+    const actionReferences = workflow.match(/^\s*uses:\s*actions\/[^@\s]+@([^\s#]+)/gm) ?? [];
+
+    assert.equal(actionReferences.length, 5);
+
+    for (const reference of actionReferences) {
+      assert.match(reference, /@[0-9a-f]{40}$/);
+    }
+  });
+
+  it('pins CI bootstrap actions and applies a finite job timeout', () => {
+    const workflow = readWorkspaceFile('.github/workflows/ci.yml');
+    const actionReferences = workflow.match(/^\s*uses:\s*actions\/[^@\s]+@([^\s#]+)/gm) ?? [];
+
+    assert.equal(actionReferences.length, 2);
+    assert.match(workflow, /timeout-minutes:\s*15/);
+
+    for (const reference of actionReferences) {
+      assert.match(reference, /@[0-9a-f]{40}$/);
+    }
+  });
 });
 
 type PackageJson = {
