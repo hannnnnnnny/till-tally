@@ -1,12 +1,14 @@
-import express, { type Request, type Response } from 'express';
+import express from 'express';
 import 'dotenv/config';
 import { authRouter } from './auth/routes';
 import { businessesRouter } from './businesses/routes';
 import { dashboardRouter } from './dashboard/routes';
+import { healthRouter } from './health/routes';
 import { importRouter } from './imports/routes';
 import { inventoryRouter } from './inventory/routes';
 import { productsRouter } from './products/routes';
 import { reportsRouter } from './reports/routes';
+import { errorHandler, notFoundHandler } from './http/errorMiddleware';
 
 const app = express();
 const port = Number(process.env.PORT ?? 4000);
@@ -22,11 +24,10 @@ app.use('/api/import', importRouter);
 app.use('/api/inventory', inventoryRouter);
 app.use('/api/products', productsRouter);
 app.use('/api/reports', reportsRouter);
+app.use('/api/health', healthRouter);
 
-/** Health check — confirms the API is up. */
-app.get('/api/health', (_req: Request, res: Response) => {
-  res.json({ status: 'ok', service: 'till-tally-api' });
-});
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 app.listen(port, () => {
   // Startup banner (intentional log, not debug output).

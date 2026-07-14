@@ -15,6 +15,7 @@
     "build:client": "npm run build -w client",
     "build:server": "npm run build -w server",
     "db:seed": "npm run prisma:seed -w server",
+    "prisma:validate": "npm run prisma:validate -w server",
     "typecheck": "npm run typecheck -w client && npm run typecheck -w server",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

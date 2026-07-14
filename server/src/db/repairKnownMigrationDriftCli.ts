@@ -44,7 +44,9 @@ async function main(): Promise<void> {
     const deletedRows = await prisma.$executeRawUnsafe(getKnownMigrationDriftCleanupSql());
 
     if (deletedRows > 0) {
-      console.info(`Removed failed duplicate Prisma migration row: ${currentBusinessMigrationName}`);
+      console.info(
+        `Removed failed duplicate Prisma migration row: ${currentBusinessMigrationName}`,
+      );
       appliedMigrationNames = appliedMigrationNames.filter(
         (migrationName) => migrationName !== currentBusinessMigrationName,
       );
@@ -62,7 +64,9 @@ async function main(): Promise<void> {
       AND table_name IN ('businesses', 'business_members')
   `;
   const existingTableNames = new Set(existingBusinessTables.map((table) => table.table_name));
-  const missingTables = requiredBusinessTables.filter((tableName) => !existingTableNames.has(tableName));
+  const missingTables = requiredBusinessTables.filter(
+    (tableName) => !existingTableNames.has(tableName),
+  );
 
   if (missingTables.length > 0) {
     throw new Error(

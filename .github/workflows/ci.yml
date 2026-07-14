@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   build:
-    name: install · lint · typecheck · test · build
+    name: install / format / lint / typecheck / test / build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -31,6 +31,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Format check
+        run: npm run format:check
+
+      - name: Validate Prisma schema
+        run: npm run prisma:validate -w server
+        env:
+          DATABASE_URL: postgresql://tilltally:tilltally@localhost:5432/tilltally?schema=public
+
       - name: Generate Prisma client
         run: npm run prisma:generate -w server
         env:
@@ -44,7 +52,12 @@ jobs:
 
       - name: Test
         # Runs each workspace's test script if present; a no-op until tests exist.
-        run: npm test --workspaces --if-present
+        env:
+          NODE_ENV: test
+        run: |
+          export JWT_ACCESS_SECRET="$(openssl rand -hex 32)"
+          export JWT_REFRESH_SECRET="$(openssl rand -hex 32)"
+          npm test --workspaces --if-present
 
       - name: Build
         run: npm run build

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import express, { type RequestHandler } from 'express';
 import request from 'supertest';
+import { createRateLimiter } from '../http/rateLimit';
 import { createReportsRouter, type ReportsRouterDependencies } from './reportsRouterFactory';
 import { WeeklyReportQueryError, type WeeklyReportResponse } from './weeklyReportService';
 
@@ -33,12 +34,10 @@ describe('reports routes', () => {
   });
 
   it('returns an existing weekly report for the active business', async () => {
-    let capturedRequest:
-      | {
-          businessId: string;
-          weekStart: unknown;
-        }
-      | null = null;
+    let capturedRequest: {
+      businessId: string;
+      weekStart: unknown;
+    } | null = null;
     const app = createTestApp({
       getWeeklyReport: async (businessId, query) => {
         capturedRequest = {
@@ -72,12 +71,10 @@ describe('reports routes', () => {
   });
 
   it('generates a weekly report for the active business', async () => {
-    let capturedRequest:
-      | {
-          businessId: string;
-          weekStart: unknown;
-        }
-      | null = null;
+    let capturedRequest: {
+      businessId: string;
+      weekStart: unknown;
+    } | null = null;
     const app = createTestApp({
       generateWeeklyReport: async (businessId, input) => {
         capturedRequest = {
@@ -142,6 +139,33 @@ describe('reports routes', () => {
 
     assert.equal(body.error.code, 'BAD_REPORT_QUERY');
     assert.equal(body.error.message, 'weekStart must be a string');
+  });
+
+  it('rate limits weekly report requests before running report services', async () => {
+    let serviceCalls = 0;
+    const app = createTestApp({
+      getWeeklyReport: async () => {
+        serviceCalls += 1;
+        return createWeeklyReport();
+      },
+      reportRateLimit: createRateLimiter({
+        code: 'REPORT_RATE_LIMITED',
+        max: 1,
+        message: 'Too many report requests. Please try again later.',
+        windowMs: 60_000,
+      }),
+    });
+
+    await request(app).get('/api/reports/weekly').expect(200);
+    const response = await request(app).get('/api/reports/weekly').expect(429);
+
+    assert.equal(serviceCalls, 1);
+    assert.deepEqual(response.body, {
+      error: {
+        code: 'REPORT_RATE_LIMITED',
+        message: 'Too many report requests. Please try again later.',
+      },
+    });
   });
 });
 

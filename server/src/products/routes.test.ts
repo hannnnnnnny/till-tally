@@ -19,13 +19,11 @@ type ErrorResponse = {
 
 describe('product routes', () => {
   it('returns product performance for the active business', async () => {
-    let capturedRequest:
-      | {
-          businessId: string;
-          sort: unknown;
-          status: unknown;
-        }
-      | null = null;
+    let capturedRequest: {
+      businessId: string;
+      sort: unknown;
+      status: unknown;
+    } | null = null;
 
     const app = createTestApp({
       listProductPerformance: async (businessId, query) => {
@@ -66,12 +64,10 @@ describe('product routes', () => {
   });
 
   it('returns product detail for the active business', async () => {
-    let capturedRequest:
-      | {
-          businessId: string;
-          productId: string;
-        }
-      | null = null;
+    let capturedRequest: {
+      businessId: string;
+      productId: string;
+    } | null = null;
 
     const app = createTestApp({
       getProductDetail: async (businessId, productId) => {

@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import { SalesChannel } from '@prisma/client';
 import express, { type RequestHandler } from 'express';
 import request from 'supertest';
+import { errorHandler } from '../http/errorMiddleware';
 import { type ChannelBreakdownResult } from './channelBreakdownService';
 import { createDashboardRouter, type DashboardRouterDependencies } from './dashboardRouterFactory';
 import { type SalesTrendResult } from './salesTrendService';
@@ -17,13 +18,11 @@ type ErrorResponse = {
 
 describe('dashboard routes', () => {
   it('returns dashboard summary KPIs for the active business', async () => {
-    let capturedRequest:
-      | {
-          businessId: string;
-          from: unknown;
-          to: unknown;
-        }
-      | null = null;
+    let capturedRequest: {
+      businessId: string;
+      from: unknown;
+      to: unknown;
+    } | null = null;
 
     const app = createTestApp({
       getDashboardSummary: async (businessId, query) => {
@@ -75,15 +74,42 @@ describe('dashboard routes', () => {
     assert.equal(body.error.message, 'from must be before or equal to to');
   });
 
+  it('passes unexpected async route errors to the global JSON error handler', async () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'test';
+    const app = createTestApp({
+      getDashboardSummary: async () => {
+        throw new Error('database details should not leak');
+      },
+    });
+
+    let response: request.Response;
+
+    try {
+      response = await request(app).get('/api/dashboard/summary').expect(500);
+    } finally {
+      if (previousNodeEnv === undefined) {
+        delete process.env.NODE_ENV;
+      } else {
+        process.env.NODE_ENV = previousNodeEnv;
+      }
+    }
+
+    assert.deepEqual(response.body, {
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Something went wrong',
+      },
+    });
+  });
+
   it('returns sales trend points for the active business', async () => {
-    let capturedRequest:
-      | {
-          businessId: string;
-          from: unknown;
-          to: unknown;
-          interval: unknown;
-        }
-      | null = null;
+    let capturedRequest: {
+      businessId: string;
+      from: unknown;
+      to: unknown;
+      interval: unknown;
+    } | null = null;
 
     const app = createTestApp({
       getDashboardSalesTrend: async (businessId, query) => {
@@ -128,13 +154,11 @@ describe('dashboard routes', () => {
   });
 
   it('returns channel breakdown metrics for the active business', async () => {
-    let capturedRequest:
-      | {
-          businessId: string;
-          from: unknown;
-          to: unknown;
-        }
-      | null = null;
+    let capturedRequest: {
+      businessId: string;
+      from: unknown;
+      to: unknown;
+    } | null = null;
 
     const app = createTestApp({
       getDashboardChannelBreakdown: async (businessId, query) => {
@@ -181,7 +205,11 @@ function createTestApp(overrides: Partial<DashboardRouterDependencies>): express
   const app = express();
 
   app.use(express.json());
-  app.use('/api/dashboard', createDashboardRouter({ ...createDefaultDependencies(), ...overrides }));
+  app.use(
+    '/api/dashboard',
+    createDashboardRouter({ ...createDefaultDependencies(), ...overrides }),
+  );
+  app.use(errorHandler);
 
   return app;
 }

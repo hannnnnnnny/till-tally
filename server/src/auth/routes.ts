@@ -1,6 +1,8 @@
-import { type Response, Router } from 'express';
+import { type RequestHandler, type Response, Router } from 'express';
 import { TokenExpiredError } from 'jsonwebtoken';
 import { prisma } from '../db/prisma';
+import { asyncHandler } from '../http/asyncHandler';
+import { authRateLimit } from '../http/rateLimit';
 import { requireAuth } from './middleware';
 import { hashPassword, verifyPassword } from './password';
 import {
@@ -8,12 +10,16 @@ import {
   getRefreshTokenFromRequest,
   setRefreshTokenCookie,
 } from './refreshCookie';
+import { refreshTokenStore, type RefreshTokenStore } from './refreshTokenStore';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from './tokens';
-
-export const authRouter = Router();
 
 const INVALID_CREDENTIALS_ERROR = 'Invalid email or password';
 const ACCESS_TOKEN_EXPIRES_IN_SECONDS = 900;
+
+export type AuthRouterOptions = {
+  authRateLimit?: RequestHandler;
+  refreshTokenStore?: RefreshTokenStore;
+};
 
 type SafeUser = {
   id: string;
@@ -23,10 +29,16 @@ type SafeUser = {
 
 type AuthErrorCode = 'UNAUTHENTICATED' | 'TOKEN_EXPIRED';
 
-function sendAuthSuccess(res: Response, user: SafeUser, statusCode = 200): Response {
+async function sendAuthSuccess(
+  res: Response,
+  user: SafeUser,
+  tokenStore: RefreshTokenStore,
+  statusCode = 200,
+): Promise<Response> {
   const accessToken = signAccessToken(user.id);
   const refreshToken = signRefreshToken(user.id);
 
+  await tokenStore.storeRefreshToken(user.id, refreshToken, verifyRefreshToken(refreshToken));
   setRefreshTokenCookie(res, refreshToken);
 
   return res.status(statusCode).json({
@@ -49,155 +61,206 @@ function isUniqueConstraintError(error: unknown): boolean {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002';
 }
 
-authRouter.post('/register', async (req, res) => {
-  const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
-  const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
-  const password = typeof req.body.password === 'string' ? req.body.password : '';
+export function createAuthRouter(options: AuthRouterOptions = {}): Router {
+  const router = Router();
+  const authLimiter = options.authRateLimit ?? authRateLimit;
+  const tokenStore = options.refreshTokenStore ?? refreshTokenStore;
 
-  if (!name || name.length > 120) {
-    return res.status(400).json({ error: 'Name is required' });
-  }
+  router.post(
+    '/register',
+    authLimiter,
+    asyncHandler(async (req, res) => {
+      const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
+      const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+      const password = typeof req.body.password === 'string' ? req.body.password : '';
 
-  if (!email || !email.includes('@')) {
-    return res.status(400).json({ error: 'Valid email is required' });
-  }
+      if (!name || name.length > 120) {
+        return res.status(400).json({ error: 'Name is required' });
+      }
 
-  if (password.length < 8) {
-    return res.status(400).json({ error: 'Password must be at least 8 characters' });
-  }
+      if (!email || !email.includes('@')) {
+        return res.status(400).json({ error: 'Valid email is required' });
+      }
 
-  const passwordHash = await hashPassword(password);
+      if (password.length < 8) {
+        return res.status(400).json({ error: 'Password must be at least 8 characters' });
+      }
 
-  try {
-    const user = await prisma.user.create({
-      data: {
-        name,
-        email,
-        passwordHash,
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-      },
-    });
+      const passwordHash = await hashPassword(password);
 
-    return sendAuthSuccess(res, user, 201);
-  } catch (error) {
-    if (isUniqueConstraintError(error)) {
-      return res.status(409).json({ error: 'Email is already taken' });
-    }
+      try {
+        const user = await prisma.user.create({
+          data: {
+            name,
+            email,
+            passwordHash,
+          },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        });
 
-    throw error;
-  }
-});
+        return sendAuthSuccess(res, user, tokenStore, 201);
+      } catch (error) {
+        if (isUniqueConstraintError(error)) {
+          return res.status(409).json({ error: 'Email is already taken' });
+        }
 
-authRouter.post('/login', async (req, res) => {
-  const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
-  const password = typeof req.body.password === 'string' ? req.body.password : '';
+        throw error;
+      }
+    }),
+  );
 
-  if (!email || !email.includes('@') || !password) {
-    return res.status(400).json({ error: 'Valid email and password are required' });
-  }
+  router.post(
+    '/login',
+    authLimiter,
+    asyncHandler(async (req, res) => {
+      const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+      const password = typeof req.body.password === 'string' ? req.body.password : '';
 
-  const user = await prisma.user.findUnique({
-    where: {
-      email,
-    },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      passwordHash: true,
-    },
-  });
+      if (!email || !email.includes('@') || !password) {
+        return res.status(400).json({ error: 'Valid email and password are required' });
+      }
 
-  if (!user) {
-    return res.status(401).json({ error: INVALID_CREDENTIALS_ERROR });
-  }
+      const user = await prisma.user.findUnique({
+        where: {
+          email,
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          passwordHash: true,
+        },
+      });
 
-  const isValidPassword = await verifyPassword(password, user.passwordHash);
+      if (!user) {
+        return res.status(401).json({ error: INVALID_CREDENTIALS_ERROR });
+      }
 
-  if (!isValidPassword) {
-    return res.status(401).json({ error: INVALID_CREDENTIALS_ERROR });
-  }
+      const isValidPassword = await verifyPassword(password, user.passwordHash);
 
-  return sendAuthSuccess(res, {
-    id: user.id,
-    name: user.name,
-    email: user.email,
-  });
-});
+      if (!isValidPassword) {
+        return res.status(401).json({ error: INVALID_CREDENTIALS_ERROR });
+      }
 
-authRouter.get('/me', requireAuth, async (req, res) => {
-  if (!req.userId) {
-    return sendAuthError(res, 'UNAUTHENTICATED', 'Missing authenticated user');
-  }
+      return sendAuthSuccess(
+        res,
+        {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+        },
+        tokenStore,
+      );
+    }),
+  );
 
-  const user = await prisma.user.findUnique({
-    where: {
-      id: req.userId,
-    },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-    },
-  });
+  router.get(
+    '/me',
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      if (!req.userId) {
+        return sendAuthError(res, 'UNAUTHENTICATED', 'Missing authenticated user');
+      }
 
-  if (!user) {
-    return sendAuthError(res, 'UNAUTHENTICATED', 'Authenticated user not found');
-  }
+      const user = await prisma.user.findUnique({
+        where: {
+          id: req.userId,
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      });
 
-  return res.json({
-    user,
-  });
-});
+      if (!user) {
+        return sendAuthError(res, 'UNAUTHENTICATED', 'Authenticated user not found');
+      }
 
-authRouter.post('/refresh', async (req, res) => {
-  const refreshToken = getRefreshTokenFromRequest(req);
+      return res.json({
+        user,
+      });
+    }),
+  );
 
-  if (!refreshToken) {
-    return sendAuthError(res, 'UNAUTHENTICATED', 'Missing refresh token');
-  }
+  router.post(
+    '/refresh',
+    authLimiter,
+    asyncHandler(async (req, res) => {
+      const refreshToken = getRefreshTokenFromRequest(req);
 
-  try {
-    const payload = verifyRefreshToken(refreshToken);
-    const user = await prisma.user.findUnique({
-      where: {
-        id: payload.sub,
-      },
-      select: {
-        id: true,
-      },
-    });
+      if (!refreshToken) {
+        return sendAuthError(res, 'UNAUTHENTICATED', 'Missing refresh token');
+      }
 
-    if (!user) {
+      try {
+        const payload = verifyRefreshToken(refreshToken);
+        const user = await prisma.user.findUnique({
+          where: {
+            id: payload.sub,
+          },
+          select: {
+            id: true,
+          },
+        });
+
+        if (!user) {
+          clearRefreshTokenCookie(res);
+          return sendAuthError(res, 'UNAUTHENTICATED', 'Invalid refresh token');
+        }
+
+        const accessToken = signAccessToken(user.id);
+        const nextRefreshToken = signRefreshToken(user.id);
+        const nextRefreshPayload = verifyRefreshToken(nextRefreshToken);
+        const rotated = await tokenStore.rotateRefreshToken(
+          user.id,
+          refreshToken,
+          nextRefreshToken,
+          nextRefreshPayload,
+        );
+
+        if (!rotated) {
+          clearRefreshTokenCookie(res);
+          return sendAuthError(res, 'UNAUTHENTICATED', 'Invalid refresh token');
+        }
+
+        setRefreshTokenCookie(res, nextRefreshToken);
+
+        return res.json({
+          accessToken,
+          expiresIn: ACCESS_TOKEN_EXPIRES_IN_SECONDS,
+        });
+      } catch (error) {
+        clearRefreshTokenCookie(res);
+
+        if (error instanceof TokenExpiredError) {
+          return sendAuthError(res, 'TOKEN_EXPIRED', 'Refresh token has expired');
+        }
+
+        return sendAuthError(res, 'UNAUTHENTICATED', 'Invalid refresh token');
+      }
+    }),
+  );
+
+  router.post(
+    '/logout',
+    asyncHandler(async (req, res) => {
+      const refreshToken = getRefreshTokenFromRequest(req);
+
+      if (refreshToken) {
+        await tokenStore.revokeRefreshToken(refreshToken);
+      }
+
       clearRefreshTokenCookie(res);
-      return sendAuthError(res, 'UNAUTHENTICATED', 'Invalid refresh token');
-    }
+      return res.status(204).send();
+    }),
+  );
 
-    const accessToken = signAccessToken(user.id);
-    const nextRefreshToken = signRefreshToken(user.id);
+  return router;
+}
 
-    setRefreshTokenCookie(res, nextRefreshToken);
-
-    return res.json({
-      accessToken,
-      expiresIn: ACCESS_TOKEN_EXPIRES_IN_SECONDS,
-    });
-  } catch (error) {
-    clearRefreshTokenCookie(res);
-
-    if (error instanceof TokenExpiredError) {
-      return sendAuthError(res, 'TOKEN_EXPIRED', 'Refresh token has expired');
-    }
-
-    return sendAuthError(res, 'UNAUTHENTICATED', 'Invalid refresh token');
-  }
-});
-
-authRouter.post('/logout', (_req, res) => {
-  clearRefreshTokenCookie(res);
-  return res.status(204).send();
-});
+export const authRouter = createAuthRouter();

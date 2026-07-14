@@ -156,10 +156,13 @@ export function buildWeeklyReport(input: BuildWeeklyReportInput): WeeklyReportDr
   const previousSales = sumOrderSales(input.previousOrders);
   const salesChangePercent = calculateSalesChangePercent(currentSales, previousSales);
   const topCategory = findTopCategory(input.currentOrders);
-  const lowStockCount = input.products.filter((product) => product.currentStock <= LOW_STOCK_THRESHOLD).length;
+  const lowStockCount = input.products.filter(
+    (product) => product.currentStock <= LOW_STOCK_THRESHOLD,
+  ).length;
   const slowMoverCutoff = addUtcDays(weekEnd, -SLOW_MOVER_DAYS);
   const slowMoverCount = input.products.filter(
-    (product) => product.currentStock > 0 && (!product.lastSoldAt || product.lastSoldAt < slowMoverCutoff),
+    (product) =>
+      product.currentStock > 0 && (!product.lastSoldAt || product.lastSoldAt < slowMoverCutoff),
   ).length;
 
   return {
@@ -340,7 +343,10 @@ function findTopCategory(orders: WeeklyReportOrderSource[]): string | null {
   for (const order of orders) {
     for (const item of order.items) {
       const category = item.product?.category?.trim() || 'Uncategorised';
-      categoryRevenue.set(category, (categoryRevenue.get(category) ?? 0) + toNumber(item.totalPrice));
+      categoryRevenue.set(
+        category,
+        (categoryRevenue.get(category) ?? 0) + toNumber(item.totalPrice),
+      );
     }
   }
 

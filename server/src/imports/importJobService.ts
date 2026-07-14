@@ -137,7 +137,9 @@ export async function getImportJobDetail(
   };
 }
 
-export function normalizeImportJobErrorSummary(value: Prisma.JsonValue | null): ImportJobErrorSummary {
+export function normalizeImportJobErrorSummary(
+  value: Prisma.JsonValue | null,
+): ImportJobErrorSummary {
   if (!isRecord(value)) {
     return createEmptyErrorSummary();
   }

@@ -1,4 +1,5 @@
 import { type Request, type RequestHandler, type Response, Router } from 'express';
+import { asyncHandler } from '../http/asyncHandler';
 import {
   InventoryRiskQueryError,
   type InventoryInsights,
@@ -57,7 +58,7 @@ export function createInventoryRouter(dependencies: InventoryRouterDependencies)
     '/insights',
     dependencies.requireAuth,
     dependencies.requireBusinessAccess,
-    async (req, res) => {
+    asyncHandler(async (req, res) => {
       if (!req.businessId) {
         sendInventoryError(res, 403, 'NO_BUSINESS_ACCESS', 'Missing business context');
         return;
@@ -75,29 +76,29 @@ export function createInventoryRouter(dependencies: InventoryRouterDependencies)
 
         throw error;
       }
-    },
+    }),
   );
 
   router.get(
     '/low-stock',
     dependencies.requireAuth,
     dependencies.requireBusinessAccess,
-    async (req, res) => {
+    asyncHandler(async (req, res) => {
       await sendInventoryListResponse(req, res, dependencies, 'lowStock', {
         threshold: 'lowStockThreshold',
       });
-    },
+    }),
   );
 
   router.get(
     '/slow-movers',
     dependencies.requireAuth,
     dependencies.requireBusinessAccess,
-    async (req, res) => {
+    asyncHandler(async (req, res) => {
       await sendInventoryListResponse(req, res, dependencies, 'slowMovers', {
         days: 'slowMoverDays',
       });
-    },
+    }),
   );
 
   return router;
