@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthPage } from './auth/AuthPage';
 import { useAuth } from './auth/AuthContext';
@@ -8,7 +9,6 @@ import { LandingPage } from './landing/LandingPage';
 import { AppShell } from './layout/AppShell';
 import { DEFAULT_APP_PATH } from './navigation/routes';
 import { ChannelsPage } from './pages/ChannelsPage';
-import { AnalyticsPage } from './pages/AnalyticsPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ImportsPage } from './pages/ImportsPage';
 import { InventoryPage } from './pages/InventoryPage';
@@ -16,6 +16,10 @@ import { ProductsPage } from './pages/ProductsPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { WorkspacePage } from './pages/WorkspacePage';
 import { StatePanel } from './ui/StatePanel';
+
+const AnalyticsPage = lazy(() =>
+  import('./pages/AnalyticsPage').then(({ AnalyticsPage: Page }) => ({ default: Page })),
+);
 
 export default function App() {
   const Router = runtimeConfig.routerMode === 'hash' ? HashRouter : BrowserRouter;
@@ -35,7 +39,22 @@ export default function App() {
           }
         >
           <Route path="dashboard" element={<DashboardPage />} />
-          <Route path="analytics" element={<AnalyticsPage />} />
+          <Route
+            path="analytics"
+            element={
+              <Suspense
+                fallback={
+                  <StatePanel
+                    tone="loading"
+                    minHeight="lg"
+                    message="Loading analytics workspace..."
+                  />
+                }
+              >
+                <AnalyticsPage />
+              </Suspense>
+            }
+          />
           <Route path="channels" element={<ChannelsPage />} />
           <Route path="imports" element={<ImportsPage />} />
           <Route path="products" element={<ProductsPage />} />
