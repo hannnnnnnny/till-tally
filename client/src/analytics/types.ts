@@ -103,4 +103,28 @@ export type AnalyticsExecutionResult = Omit<AnalyticsPlanPreview, 'table' | 'cha
 export type AnalyticsPlannerRequest = {
   question: string;
   timezone: AnalyticsTimezone;
+  currentPlan?: AnalyticsPlan;
+};
+
+export type SavedAnalyticsReport = {
+  id: string;
+  name: string;
+  currentVersion: number;
+  compatible: boolean;
+  compatibilityMessage: string | null;
+  latestVersion: {
+    version: number;
+    schemaVersion: number;
+    source: 'local' | 'provider';
+    plan: AnalyticsPlan | null;
+    createdAt: string;
+  } | null;
+  versions: Array<{
+    version: number;
+    schemaVersion: number;
+    source: 'local' | 'provider';
+    createdAt: string;
+  }>;
+  createdAt: string;
+  updatedAt: string;
 };

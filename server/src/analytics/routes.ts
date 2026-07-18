@@ -6,6 +6,9 @@ import { createAnalyticsRouter } from './analyticsRouterFactory';
 import { executeAnalyticsPlan, previewAnalyticsPlan } from './analyticsExecutor';
 import { createOllamaPlannerProvider } from './ollamaPlannerProvider';
 import { prismaAnalyticsDataSource } from './prismaAnalyticsDataSource';
+import { prismaSavedReportRepository } from './prismaSavedReportRepository';
+import { createSavedReportService } from './savedReportService';
+import { createSavedReportsRouter } from './savedReportsRouterFactory';
 
 const analyticsPlanner = createAnalyticsPlanner({
   ...(env.analyticsPlannerProvider === 'ollama'
@@ -28,3 +31,12 @@ export const analyticsRouter = createAnalyticsRouter({
   executeAnalyticsPlan: (businessId, input) =>
     executeAnalyticsPlan(businessId, input, prismaAnalyticsDataSource),
 });
+
+analyticsRouter.use(
+  '/saved-reports',
+  createSavedReportsRouter({
+    requireAuth,
+    requireBusinessAccess,
+    service: createSavedReportService(prismaSavedReportRepository),
+  }),
+);

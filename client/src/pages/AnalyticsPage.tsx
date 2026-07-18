@@ -1,4 +1,4 @@
-import { RotateCcw, Send, Square } from 'lucide-react';
+import { BookMarked, Download, RotateCcw, Save, Send, Sparkles, Square } from 'lucide-react';
 import {
   lazy,
   Suspense,
@@ -10,16 +10,29 @@ import {
   useState,
 } from 'react';
 import {
+  addSavedAnalyticsReportVersion,
+  createSavedAnalyticsReport,
+  deleteSavedAnalyticsReport,
+  duplicateSavedAnalyticsReport,
   executeAnalyticsPlan,
+  listSavedAnalyticsReports,
   planAnalyticsQuestion,
   previewAnalyticsPlan,
+  renameSavedAnalyticsReport,
 } from '../analytics/api';
+import { downloadAnalyticsCsv } from '../analytics/exportCsv';
 import { PlanReviewPanel } from '../analytics/PlanReviewPanel';
+import {
+  SavedReportDeleteDialog,
+  SavedReportNameDialog,
+  SavedReportsPanel,
+} from '../analytics/SavedReportsPanel';
 import { validateAnalyticsPlan } from '../analytics/plan';
 import {
   type AnalyticsExecutionResult,
   type AnalyticsPlan,
   type AnalyticsPlanningResult,
+  type SavedAnalyticsReport,
 } from '../analytics/types';
 import { useBusinesses } from '../businesses/BusinessContext';
 import { PageHeader } from '../ui/PageLayout';
@@ -37,6 +50,8 @@ type WorkspaceStatus =
   | 'error';
 
 type RetryAction = 'plan' | 'execute';
+type SavedReportsStatus = 'idle' | 'loading' | 'ready' | 'error';
+type NameDialogMode = 'create' | 'rename';
 
 const EXAMPLE_PROMPTS = [
   'Show daily revenue this month',
@@ -69,7 +84,22 @@ export function AnalyticsPage() {
   const [result, setResult] = useState<AnalyticsExecutionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [retryAction, setRetryAction] = useState<RetryAction>('plan');
+  const [isRefining, setIsRefining] = useState(false);
+  const [savedReportsOpen, setSavedReportsOpen] = useState(false);
+  const [savedReports, setSavedReports] = useState<SavedAnalyticsReport[]>([]);
+  const [savedReportsStatus, setSavedReportsStatus] = useState<SavedReportsStatus>('idle');
+  const [savedReportsError, setSavedReportsError] = useState<string | null>(null);
+  const [activeSavedReportId, setActiveSavedReportId] = useState<string | null>(null);
+  const [libraryBusy, setLibraryBusy] = useState(false);
+  const [nameDialogMode, setNameDialogMode] = useState<NameDialogMode | null>(null);
+  const [nameDialogReport, setNameDialogReport] = useState<SavedAnalyticsReport | null>(null);
+  const [reportName, setReportName] = useState('');
+  const [nameDialogError, setNameDialogError] = useState<string | null>(null);
+  const [deleteDialogReport, setDeleteDialogReport] = useState<SavedAnalyticsReport | null>(null);
+  const [deleteDialogError, setDeleteDialogError] = useState<string | null>(null);
+  const [workspaceNotice, setWorkspaceNotice] = useState<string | null>(null);
   const requestControllerRef = useRef<AbortController | null>(null);
+  const libraryOperationRef = useRef(0);
   const promptRef = useRef<HTMLTextAreaElement>(null);
   const activeBusinessIdRef = useRef(activeBusinessId);
   activeBusinessIdRef.current = activeBusinessId;
@@ -78,6 +108,7 @@ export function AnalyticsPage() {
   const isBusy = status === 'planning' || status === 'executing';
 
   useEffect(() => {
+    libraryOperationRef.current += 1;
     requestControllerRef.current?.abort();
     requestControllerRef.current = null;
     setPrompt('');
@@ -89,7 +120,44 @@ export function AnalyticsPage() {
     setGuidanceExamples([]);
     setResult(null);
     setError(null);
+    setIsRefining(false);
+    setSavedReports([]);
+    setSavedReportsStatus(activeBusinessHeaders ? 'loading' : 'idle');
+    setSavedReportsError(null);
+    setActiveSavedReportId(null);
+    setSavedReportsOpen(false);
+    setNameDialogMode(null);
+    setNameDialogReport(null);
+    setNameDialogError(null);
+    setDeleteDialogReport(null);
+    setDeleteDialogError(null);
+    setLibraryBusy(false);
+    setWorkspaceNotice(null);
   }, [activeBusinessId]);
+
+  useEffect(() => {
+    if (!activeBusinessHeaders || !activeBusinessId) return;
+
+    const controller = new AbortController();
+    const requestBusinessId = activeBusinessId;
+    setSavedReportsStatus('loading');
+    void listSavedAnalyticsReports(activeBusinessHeaders, { signal: controller.signal })
+      .then(({ reports }) => {
+        if (activeBusinessIdRef.current !== requestBusinessId) return;
+        setSavedReports(reports);
+        setSavedReportsStatus('ready');
+        setSavedReportsError(null);
+      })
+      .catch((loadError: unknown) => {
+        if (isAbortError(loadError) || activeBusinessIdRef.current !== requestBusinessId) {
+          return;
+        }
+        setSavedReportsStatus('error');
+        setSavedReportsError(getRequestError(loadError, 'Unable to load saved reports.'));
+      });
+
+    return () => controller.abort();
+  }, [activeBusinessHeaders, activeBusinessId]);
 
   useEffect(
     () => () => {
@@ -101,6 +169,7 @@ export function AnalyticsPage() {
   async function submitQuestion(question = prompt): Promise<void> {
     const cleanQuestion = question.trim();
     const validationMessage = validatePrompt(cleanQuestion);
+    const refinementPlan = isRefining ? plan : null;
 
     if (validationMessage) {
       setPromptError(validationMessage);
@@ -119,17 +188,25 @@ export function AnalyticsPage() {
     setPrompt(cleanQuestion);
     setPromptError(null);
     setStatus('planning');
-    setPlan(null);
+    if (!refinementPlan) {
+      setPlan(null);
+      setActiveSavedReportId(null);
+    }
     setGuidance(null);
     setGuidanceExamples([]);
     setResult(null);
     setError(null);
+    setWorkspaceNotice(null);
     setRetryAction('plan');
 
     try {
       const planningResult = await planAnalyticsQuestion(
         activeBusinessHeaders,
-        { question: cleanQuestion, timezone: 'Pacific/Auckland' },
+        {
+          question: cleanQuestion,
+          timezone: 'Pacific/Auckland',
+          ...(refinementPlan ? { currentPlan: refinementPlan } : {}),
+        },
         { signal: controller.signal },
       );
 
@@ -158,6 +235,7 @@ export function AnalyticsPage() {
     if (planningResult.status === 'ready') {
       setPlan(planningResult.plan);
       setPlanMessage(planningResult.message);
+      setIsRefining(false);
       setStatus('ready');
       return;
     }
@@ -179,6 +257,7 @@ export function AnalyticsPage() {
     setStatus('executing');
     setResult(null);
     setError(null);
+    setWorkspaceNotice(null);
     setRetryAction('execute');
 
     try {
@@ -230,7 +309,188 @@ export function AnalyticsPage() {
     setGuidanceExamples([]);
     setResult(null);
     setError(null);
+    setIsRefining(false);
+    setActiveSavedReportId(null);
+    setWorkspaceNotice(null);
     promptRef.current?.focus();
+  }
+
+  async function reloadSavedReports(
+    headers = activeBusinessHeaders,
+    requestBusinessId = activeBusinessId,
+  ): Promise<void> {
+    if (!headers || !requestBusinessId) return;
+    setSavedReportsStatus('loading');
+    setSavedReportsError(null);
+    try {
+      const response = await listSavedAnalyticsReports(headers);
+      if (activeBusinessIdRef.current !== requestBusinessId) return;
+      setSavedReports(response.reports);
+      setSavedReportsStatus('ready');
+    } catch (loadError) {
+      if (activeBusinessIdRef.current !== requestBusinessId) return;
+      setSavedReportsStatus('error');
+      setSavedReportsError(getRequestError(loadError, 'Unable to load saved reports.'));
+    }
+  }
+
+  function startLibraryOperation(): { id: number; businessId: string } | null {
+    if (!activeBusinessId) return null;
+    const id = libraryOperationRef.current + 1;
+    libraryOperationRef.current = id;
+    setLibraryBusy(true);
+    return { id, businessId: activeBusinessId };
+  }
+
+  function isCurrentLibraryOperation(operation: { id: number; businessId: string }): boolean {
+    return (
+      libraryOperationRef.current === operation.id &&
+      activeBusinessIdRef.current === operation.businessId
+    );
+  }
+
+  function openCreateReportDialog(): void {
+    if (!plan) return;
+    setNameDialogMode('create');
+    setNameDialogReport(null);
+    setReportName(result?.title ?? planMessage ?? 'Untitled report');
+    setNameDialogError(null);
+  }
+
+  function openRenameReportDialog(report: SavedAnalyticsReport): void {
+    setNameDialogMode('rename');
+    setNameDialogReport(report);
+    setReportName(report.name);
+    setNameDialogError(null);
+  }
+
+  async function submitReportNameDialog(): Promise<void> {
+    const headers = activeBusinessHeaders;
+    const planToSave = plan;
+    if (!headers || !nameDialogMode || !reportName.trim()) return;
+    const createInput = planToSave ? { plan: planToSave, source: planSource } : null;
+    if (nameDialogMode === 'create' && !createInput) return;
+    const operation = startLibraryOperation();
+    if (!operation) return;
+    setNameDialogError(null);
+
+    try {
+      if (nameDialogMode === 'create') {
+        if (!createInput) return;
+        const created = await createSavedAnalyticsReport(headers, {
+          name: reportName.trim(),
+          ...createInput,
+        });
+        if (!isCurrentLibraryOperation(operation)) return;
+        setActiveSavedReportId(created.id);
+        setWorkspaceNotice(`Saved "${created.name}" as version 1.`);
+      } else if (nameDialogReport) {
+        const renamed = await renameSavedAnalyticsReport(
+          headers,
+          nameDialogReport.id,
+          reportName.trim(),
+        );
+        if (!isCurrentLibraryOperation(operation)) return;
+        setWorkspaceNotice(`Renamed the report to "${renamed.name}".`);
+      }
+
+      setNameDialogMode(null);
+      setNameDialogReport(null);
+      await reloadSavedReports(headers, operation.businessId);
+    } catch (saveError) {
+      if (!isCurrentLibraryOperation(operation)) return;
+      setNameDialogError(getRequestError(saveError, 'Unable to save this report.'));
+    } finally {
+      if (libraryOperationRef.current === operation.id) setLibraryBusy(false);
+    }
+  }
+
+  function loadSavedReport(report: SavedAnalyticsReport): void {
+    const savedPlan = report.latestVersion?.plan;
+    if (!savedPlan) return;
+    setPlan(savedPlan);
+    setPlanSource(report.latestVersion?.source ?? 'local');
+    setPlanMessage(`Loaded ${report.name}, version ${report.currentVersion}.`);
+    setStatus('ready');
+    setPrompt('');
+    setPromptError(null);
+    setResult(null);
+    setError(null);
+    setIsRefining(false);
+    setActiveSavedReportId(report.id);
+    setSavedReportsOpen(false);
+    setWorkspaceNotice(`Loaded "${report.name}". Review the plan before running it.`);
+  }
+
+  async function duplicateReport(report: SavedAnalyticsReport): Promise<void> {
+    const headers = activeBusinessHeaders;
+    if (!headers) return;
+    const operation = startLibraryOperation();
+    if (!operation) return;
+    setSavedReportsError(null);
+    try {
+      const duplicate = await duplicateSavedAnalyticsReport(headers, report.id);
+      if (!isCurrentLibraryOperation(operation)) return;
+      setWorkspaceNotice(`Created "${duplicate.name}".`);
+      await reloadSavedReports(headers, operation.businessId);
+    } catch (duplicateError) {
+      if (!isCurrentLibraryOperation(operation)) return;
+      setSavedReportsError(getRequestError(duplicateError, 'Unable to duplicate this report.'));
+      setSavedReportsStatus('error');
+    } finally {
+      if (libraryOperationRef.current === operation.id) setLibraryBusy(false);
+    }
+  }
+
+  async function removeReport(): Promise<void> {
+    const headers = activeBusinessHeaders;
+    const report = deleteDialogReport;
+    if (!headers || !report) return;
+    const operation = startLibraryOperation();
+    if (!operation) return;
+    setDeleteDialogError(null);
+    try {
+      await deleteSavedAnalyticsReport(headers, report.id);
+      if (!isCurrentLibraryOperation(operation)) return;
+      if (activeSavedReportId === report.id) setActiveSavedReportId(null);
+      setDeleteDialogReport(null);
+      setWorkspaceNotice(`Deleted "${report.name}".`);
+      await reloadSavedReports(headers, operation.businessId);
+    } catch (deleteError) {
+      if (!isCurrentLibraryOperation(operation)) return;
+      setDeleteDialogError(getRequestError(deleteError, 'Unable to delete this report.'));
+    } finally {
+      if (libraryOperationRef.current === operation.id) setLibraryBusy(false);
+    }
+  }
+
+  async function saveNewVersion(): Promise<void> {
+    const headers = activeBusinessHeaders;
+    if (!headers || !activeSavedReportId || !plan) return;
+    const operation = startLibraryOperation();
+    if (!operation) return;
+    try {
+      const saved = await addSavedAnalyticsReportVersion(headers, activeSavedReportId, {
+        plan,
+        source: planSource,
+      });
+      if (!isCurrentLibraryOperation(operation)) return;
+      setWorkspaceNotice(`Saved version ${saved.currentVersion} of "${saved.name}".`);
+      await reloadSavedReports(headers, operation.businessId);
+    } catch (saveError) {
+      if (!isCurrentLibraryOperation(operation)) return;
+      setError(getRequestError(saveError, 'Unable to save a new report version.'));
+    } finally {
+      if (libraryOperationRef.current === operation.id) setLibraryBusy(false);
+    }
+  }
+
+  function beginRefinement(): void {
+    setIsRefining(true);
+    setPrompt('');
+    setPromptError(null);
+    setWorkspaceNotice('Describe only what you want to change. The current plan stays in context.');
+    window.setTimeout(() => promptRef.current?.focus(), 0);
   }
 
   function retry(): void {
@@ -271,16 +531,32 @@ export function AnalyticsPage() {
             : 'Select a business before asking a question.'
         }
         actions={
-          status !== 'idle' && (
-            <button
-              type="button"
-              onClick={resetWorkspace}
-              disabled={isBusy}
-              className={getActionClassName('secondary')}
-            >
-              <RotateCcw aria-hidden="true" className="h-4 w-4" />
-              New question
-            </button>
+          activeBusinessHeaders && (
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setSavedReportsOpen((open) => !open)}
+                aria-expanded={savedReportsOpen}
+                className={getActionClassName('secondary')}
+              >
+                <BookMarked aria-hidden="true" className="h-4 w-4" />
+                Saved reports
+                {savedReports.length > 0 && (
+                  <span className="tabular-nums text-slate-500">{savedReports.length}</span>
+                )}
+              </button>
+              {status !== 'idle' && (
+                <button
+                  type="button"
+                  onClick={resetWorkspace}
+                  disabled={isBusy}
+                  className={getActionClassName('secondary')}
+                >
+                  <RotateCcw aria-hidden="true" className="h-4 w-4" />
+                  New question
+                </button>
+              )}
+            </div>
           )
         }
       />
@@ -294,13 +570,43 @@ export function AnalyticsPage() {
       )}
 
       {activeBusinessHeaders && (
+        <SavedReportsPanel
+          open={savedReportsOpen}
+          reports={savedReports}
+          status={savedReportsStatus}
+          error={savedReportsError}
+          activeReportId={activeSavedReportId}
+          disabled={isBusy || libraryBusy}
+          onClose={() => setSavedReportsOpen(false)}
+          onLoad={loadSavedReport}
+          onRename={openRenameReportDialog}
+          onDuplicate={(report) => void duplicateReport(report)}
+          onDelete={(report) => {
+            setDeleteDialogReport(report);
+            setDeleteDialogError(null);
+          }}
+          onRetry={() => void reloadSavedReports()}
+        />
+      )}
+
+      {workspaceNotice && activeBusinessHeaders && (
+        <InlineNotice tone="success">{workspaceNotice}</InlineNotice>
+      )}
+
+      {activeBusinessHeaders && (
         <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(320px,0.72fr)_minmax(0,1.28fr)]">
           <section className="self-start overflow-hidden rounded-lg bg-slate-950 text-white shadow-[0_12px_28px_rgba(15,23,42,0.16)] xl:sticky xl:top-20">
             <div className="border-b border-white/10 px-4 py-4 sm:px-5">
-              <p className="text-xs font-semibold uppercase text-blue-300">Question</p>
-              <h3 className="mt-1 text-lg font-bold">What do you want to understand?</h3>
+              <p className="text-xs font-semibold uppercase text-blue-300">
+                {isRefining ? 'Refinement' : 'Question'}
+              </p>
+              <h3 className="mt-1 text-lg font-bold">
+                {isRefining ? 'What should change?' : 'What do you want to understand?'}
+              </h3>
               <p className="mt-2 text-sm leading-6 text-slate-300">
-                Ask about revenue, margin, orders, products, channels, or inventory risk.
+                {isRefining
+                  ? 'The validated current plan remains in context. Describe only the adjustment.'
+                  : 'Ask about revenue, margin, orders, products, channels, or inventory risk.'}
               </p>
             </div>
 
@@ -346,7 +652,11 @@ export function AnalyticsPage() {
                   className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-md bg-blue-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Send aria-hidden="true" className="h-4 w-4" />
-                  {status === 'planning' ? 'Interpreting...' : 'Review question'}
+                  {status === 'planning'
+                    ? 'Interpreting...'
+                    : isRefining
+                      ? 'Review refinement'
+                      : 'Review question'}
                 </button>
                 {isBusy && (
                   <button
@@ -361,22 +671,24 @@ export function AnalyticsPage() {
               </div>
             </form>
 
-            <div className="border-t border-white/10 px-4 py-4 sm:px-5">
-              <p className="text-xs font-semibold uppercase text-slate-400">Try an example</p>
-              <div className="mt-2 grid gap-2">
-                {EXAMPLE_PROMPTS.map((example) => (
-                  <button
-                    key={example}
-                    type="button"
-                    onClick={() => chooseExample(example)}
-                    disabled={isBusy}
-                    className="min-h-11 rounded-md border border-slate-800 bg-slate-900 px-3 py-2 text-left text-sm font-medium leading-5 text-slate-200 transition-colors hover:border-slate-600 hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {example}
-                  </button>
-                ))}
+            {!isRefining && (
+              <div className="border-t border-white/10 px-4 py-4 sm:px-5">
+                <p className="text-xs font-semibold uppercase text-slate-400">Try an example</p>
+                <div className="mt-2 grid gap-2">
+                  {EXAMPLE_PROMPTS.map((example) => (
+                    <button
+                      key={example}
+                      type="button"
+                      onClick={() => chooseExample(example)}
+                      disabled={isBusy}
+                      className="min-h-11 rounded-md border border-slate-800 bg-slate-900 px-3 py-2 text-left text-sm font-medium leading-5 text-slate-200 transition-colors hover:border-slate-600 hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {example}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </section>
 
           <section aria-label="Analysis review" className="min-w-0">
@@ -438,22 +750,108 @@ export function AnalyticsPage() {
             )}
 
             {status === 'complete' && result && (
-              <Suspense
-                fallback={
-                  <StatePanel
-                    className="mt-4"
-                    minHeight="sm"
-                    title="Preparing visualizations"
-                    message="Building the interactive chart and exact-value table."
-                  />
-                }
-              >
-                <AnalyticsResultPanel key={result.meta.executedAt} result={result} />
-              </Suspense>
+              <>
+                <div className="mt-4 flex flex-col gap-2 rounded-lg border border-slate-200 bg-white p-3 shadow-[0_1px_3px_rgba(15,23,42,0.06)] sm:flex-row sm:flex-wrap sm:items-center">
+                  <button
+                    type="button"
+                    onClick={beginRefinement}
+                    disabled={libraryBusy}
+                    className={getActionClassName('secondary')}
+                  >
+                    <Sparkles aria-hidden="true" className="h-4 w-4" />
+                    Refine report
+                  </button>
+                  {activeSavedReportId ? (
+                    <button
+                      type="button"
+                      onClick={() => void saveNewVersion()}
+                      disabled={libraryBusy}
+                      className={getActionClassName('primary')}
+                    >
+                      <Save aria-hidden="true" className="h-4 w-4" />
+                      Save new version
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={openCreateReportDialog}
+                      disabled={libraryBusy}
+                      className={getActionClassName('primary')}
+                    >
+                      <Save aria-hidden="true" className="h-4 w-4" />
+                      Save report
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      downloadAnalyticsCsv(result, {
+                        businessName: activeBusiness?.name ?? 'TillTally business',
+                        reportName: result.title,
+                      })
+                    }
+                    className={getActionClassName('secondary')}
+                  >
+                    <Download aria-hidden="true" className="h-4 w-4" />
+                    Export CSV
+                  </button>
+                  <p className="text-xs leading-5 text-slate-500 sm:ml-auto">
+                    Export matches the exact table below.
+                  </p>
+                </div>
+                <Suspense
+                  fallback={
+                    <StatePanel
+                      className="mt-4"
+                      minHeight="sm"
+                      title="Preparing visualizations"
+                      message="Building the interactive chart and exact-value table."
+                    />
+                  }
+                >
+                  <AnalyticsResultPanel key={result.meta.executedAt} result={result} />
+                </Suspense>
+              </>
             )}
           </section>
         </div>
       )}
+
+      <SavedReportNameDialog
+        open={nameDialogMode !== null}
+        title={nameDialogMode === 'rename' ? 'Rename saved report' : 'Save this report'}
+        description={
+          nameDialogMode === 'rename'
+            ? 'The report identity and version history stay unchanged.'
+            : 'TillTally saves the validated plan, not executable code or an arbitrary prompt.'
+        }
+        submitLabel={nameDialogMode === 'rename' ? 'Rename report' : 'Save report'}
+        value={reportName}
+        busy={libraryBusy}
+        error={nameDialogError}
+        onChange={(value) => {
+          setReportName(value);
+          setNameDialogError(null);
+        }}
+        onCancel={() => {
+          if (libraryBusy) return;
+          setNameDialogMode(null);
+          setNameDialogReport(null);
+          setNameDialogError(null);
+        }}
+        onSubmit={() => void submitReportNameDialog()}
+      />
+      <SavedReportDeleteDialog
+        report={deleteDialogReport}
+        busy={libraryBusy}
+        error={deleteDialogError}
+        onCancel={() => {
+          if (libraryBusy) return;
+          setDeleteDialogReport(null);
+          setDeleteDialogError(null);
+        }}
+        onConfirm={() => void removeReport()}
+      />
     </div>
   );
 }

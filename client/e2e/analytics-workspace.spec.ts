@@ -138,8 +138,76 @@ test('supports clarification, provider retry, cancellation, and business isolati
   await page.screenshot({ path: 'test-results/analytics-desktop.png', fullPage: true });
 });
 
+test('saves, refines, versions, manages, and exports a report on mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto('/analytics');
+
+  await page.getByLabel('Business analytics question').fill('Show daily revenue this month');
+  await page.getByRole('button', { name: 'Review question' }).click();
+  await page.getByRole('button', { name: 'Run analysis' }).click();
+  await expect(page.getByRole('button', { name: 'Save report' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Save report' }).click();
+  await expect(page.getByRole('dialog', { name: 'Save this report' })).toBeVisible();
+  await page.getByLabel('Report name').fill('Daily revenue pulse');
+  await page.getByRole('dialog').getByRole('button', { name: 'Save report' }).click();
+  await expect(page.getByText(/Saved "Daily revenue pulse" as version 1/)).toBeVisible();
+
+  await page.getByRole('button', { name: /Saved reports/ }).click();
+  const originalReport = page.getByRole('article').filter({ hasText: 'Daily revenue pulse' });
+  await expect(originalReport.getByText('Current')).toBeVisible();
+  await originalReport.getByRole('button', { name: 'Rename' }).click();
+  await page.getByLabel('Report name').fill('Revenue pulse');
+  await page.getByRole('dialog').getByRole('button', { name: 'Rename report' }).click();
+  await expect(page.getByRole('article').filter({ hasText: 'Revenue pulse' })).toBeVisible();
+
+  await page
+    .getByRole('article')
+    .filter({ hasText: 'Revenue pulse' })
+    .getByRole('button', { name: 'Duplicate' })
+    .click();
+  const duplicate = page.getByRole('article').filter({ hasText: 'Revenue pulse copy' });
+  await expect(duplicate).toBeVisible();
+  await page.screenshot({
+    path: 'test-results/analytics-saved-library-mobile.png',
+    fullPage: true,
+  });
+  await duplicate.getByRole('button', { name: 'Delete' }).click();
+  const deleteDialog = page.getByRole('dialog', { name: 'Delete saved report?' });
+  await expect(deleteDialog).toBeVisible();
+  await deleteDialog.getByRole('button', { name: 'Delete report' }).click();
+  await expect(duplicate).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Close saved reports' }).click();
+  await page.getByRole('button', { name: 'Refine report' }).click();
+  await page.getByLabel('Business analytics question').fill('Show the top 8 as a table instead');
+  await page.getByRole('button', { name: 'Review refinement' }).click();
+  await expect(page.getByLabel('Row limit')).toHaveValue('8');
+  await page.getByRole('button', { name: 'Run analysis' }).click();
+  await page.getByRole('button', { name: 'Save new version' }).click();
+  await expect(page.getByText(/Saved version 2 of "Revenue pulse"/)).toBeVisible();
+
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export CSV' }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/revenue-and-gross-profit-by-day-2026-07-19\.csv/);
+
+  await expectNoHorizontalOverflow(page);
+  await page.screenshot({ path: 'test-results/analytics-saved-mobile.png', fullPage: true });
+
+  await page.getByRole('button', { name: 'New question' }).click();
+  await page.getByLabel('Business analytics question').fill('Show daily revenue this month');
+  await page.getByRole('button', { name: 'Review question' }).click();
+  await page.getByRole('button', { name: 'Run analysis' }).click();
+  await expect(page.getByRole('button', { name: 'Save report' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Save new version' })).toHaveCount(0);
+  await expectNoHorizontalOverflow(page);
+});
+
 async function mockAnalyticsApi(page: Page) {
   let providerFailureCount = 0;
+  let savedReportSequence = 0;
+  const savedReports: Array<ReturnType<typeof createSavedReport>> = [];
 
   await page.route('**/api/**', async (route) => {
     const path = new URL(route.request().url()).pathname;
@@ -169,7 +237,10 @@ async function mockAnalyticsApi(page: Page) {
     }
 
     if (path === '/api/analytics/plan') {
-      const body = route.request().postDataJSON() as { question: string };
+      const body = route.request().postDataJSON() as {
+        question: string;
+        currentPlan?: typeof readyPlan;
+      };
 
       if (/help me/i.test(body.question)) {
         await route.fulfill({
@@ -198,9 +269,90 @@ async function mockAnalyticsApi(page: Page) {
         return;
       }
 
-      await route.fulfill({
-        json: createReadyPlanningResult(/daily/i.test(body.question) ? dailyPlan : readyPlan),
-      });
+      const planned = body.currentPlan
+        ? { ...body.currentPlan, limit: 8, chart: { type: 'table' } }
+        : /daily/i.test(body.question)
+          ? dailyPlan
+          : readyPlan;
+      await route.fulfill({ json: createReadyPlanningResult(planned) });
+      return;
+    }
+
+    if (path === '/api/analytics/saved-reports') {
+      if (route.request().method() === 'GET') {
+        await route.fulfill({ json: { reports: savedReports } });
+        return;
+      }
+
+      const body = route.request().postDataJSON() as {
+        name: string;
+        plan: typeof readyPlan;
+        source: 'local' | 'provider';
+      };
+      const report = createSavedReport(`report-${++savedReportSequence}`, body.name, body.plan);
+      savedReports.unshift(report);
+      await route.fulfill({ status: 201, json: report });
+      return;
+    }
+
+    const savedReportMatch = path.match(/^\/api\/analytics\/saved-reports\/([^/]+)(.*)$/);
+    if (savedReportMatch) {
+      const reportId = decodeURIComponent(savedReportMatch[1] ?? '');
+      const suffix = savedReportMatch[2] ?? '';
+      const reportIndex = savedReports.findIndex(({ id }) => id === reportId);
+      const report = savedReports[reportIndex];
+      if (!report) {
+        await route.fulfill({
+          status: 404,
+          json: { error: { message: 'Saved report not found' } },
+        });
+        return;
+      }
+
+      if (route.request().method() === 'PATCH') {
+        const body = route.request().postDataJSON() as { name: string };
+        report.name = body.name;
+        report.updatedAt = '2026-07-19T13:00:00.000Z';
+        await route.fulfill({ json: report });
+        return;
+      }
+
+      if (route.request().method() === 'DELETE') {
+        savedReports.splice(reportIndex, 1);
+        await route.fulfill({ status: 204, body: '' });
+        return;
+      }
+
+      if (suffix === '/duplicate') {
+        const copy = createSavedReport(
+          `report-${++savedReportSequence}`,
+          `${report.name} copy`,
+          report.latestVersion.plan,
+        );
+        savedReports.unshift(copy);
+        await route.fulfill({ status: 201, json: copy });
+        return;
+      }
+
+      if (suffix === '/versions') {
+        const body = route.request().postDataJSON() as { plan: typeof readyPlan };
+        report.currentVersion += 1;
+        report.latestVersion = {
+          ...report.latestVersion,
+          version: report.currentVersion,
+          plan: body.plan,
+        };
+        report.versions.unshift({
+          version: report.currentVersion,
+          schemaVersion: 1,
+          source: 'provider',
+          createdAt: '2026-07-19T14:00:00.000Z',
+        });
+        await route.fulfill({ status: 201, json: report });
+        return;
+      }
+
+      await route.fulfill({ json: report });
       return;
     }
 
@@ -218,6 +370,33 @@ async function mockAnalyticsApi(page: Page) {
 
     await route.fulfill({ status: 404, json: { error: 'Not mocked' } });
   });
+}
+
+function createSavedReport(id: string, name: string, plan: typeof readyPlan) {
+  return {
+    id,
+    name,
+    currentVersion: 1,
+    compatible: true,
+    compatibilityMessage: null,
+    latestVersion: {
+      version: 1,
+      schemaVersion: 1,
+      source: 'provider' as const,
+      plan,
+      createdAt: '2026-07-19T12:00:00.000Z',
+    },
+    versions: [
+      {
+        version: 1,
+        schemaVersion: 1,
+        source: 'provider' as const,
+        createdAt: '2026-07-19T12:00:00.000Z',
+      },
+    ],
+    createdAt: '2026-07-19T12:00:00.000Z',
+    updatedAt: '2026-07-19T12:00:00.000Z',
+  };
 }
 
 function createBusiness(id: string, name: string) {

@@ -25,6 +25,7 @@ export const analyticsPlannerRequestSchema = z
     question: z.string().trim().min(3).max(500),
     timezone: z.enum(ANALYTICS_TIMEZONES).default('Pacific/Auckland'),
     today: z.string().refine(isValidDateOnly, 'Expected a valid ISO calendar date').optional(),
+    currentPlan: analyticsPlanSchema.optional(),
   })
   .strict();
 

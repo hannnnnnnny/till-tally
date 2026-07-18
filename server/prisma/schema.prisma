@@ -37,16 +37,23 @@ enum ImportStatus {
   FAILED
 }
 
+enum AnalyticsPlanSource {
+  LOCAL
+  PROVIDER
+}
+
 model User {
-  id              String           @id @default(uuid())
+  id              String               @id @default(uuid())
   name            String
-  email           String           @unique
-  passwordHash    String           @map("password_hash")
-  ownedBusinesses Business[]       @relation("BusinessOwner")
+  email           String               @unique
+  passwordHash    String               @map("password_hash")
+  ownedBusinesses Business[]           @relation("BusinessOwner")
   memberships     BusinessMember[]
   refreshTokens   RefreshToken[]
-  createdAt       DateTime         @default(now()) @map("created_at")
-  updatedAt       DateTime         @updatedAt @map("updated_at")
+  savedReports    SavedReport[]        @relation("SavedReportOwner")
+  reportVersions  SavedReportVersion[] @relation("SavedReportVersionCreator")
+  createdAt       DateTime             @default(now()) @map("created_at")
+  updatedAt       DateTime             @updatedAt @map("updated_at")
 
   @@map("users")
 }
@@ -67,19 +74,20 @@ model RefreshToken {
 }
 
 model Business {
-  id         String           @id @default(uuid())
-  ownerId    String           @map("owner_id")
-  owner      User             @relation("BusinessOwner", fields: [ownerId], references: [id])
-  name       String
-  industry   String?
-  city       String?
-  members    BusinessMember[]
-  products   Product[]
-  orders     Order[]
-  importJobs ImportJob[]
-  reports    WeeklyReport[]
-  createdAt  DateTime         @default(now()) @map("created_at")
-  updatedAt  DateTime         @updatedAt @map("updated_at")
+  id           String           @id @default(uuid())
+  ownerId      String           @map("owner_id")
+  owner        User             @relation("BusinessOwner", fields: [ownerId], references: [id])
+  name         String
+  industry     String?
+  city         String?
+  members      BusinessMember[]
+  products     Product[]
+  orders       Order[]
+  importJobs   ImportJob[]
+  reports      WeeklyReport[]
+  savedReports SavedReport[]
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
 
   @@index([ownerId])
   @@map("businesses")
@@ -208,4 +216,37 @@ model WeeklyReport {
 
   @@unique([businessId, weekStart])
   @@map("weekly_reports")
+}
+
+model SavedReport {
+  id             String               @id @default(uuid())
+  businessId     String               @map("business_id")
+  business       Business             @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  ownerUserId    String               @map("owner_user_id")
+  owner          User                 @relation("SavedReportOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  name           String               @db.VarChar(80)
+  currentVersion Int                  @default(1) @map("current_version")
+  versions       SavedReportVersion[]
+  createdAt      DateTime             @default(now()) @map("created_at")
+  updatedAt      DateTime             @updatedAt @map("updated_at")
+
+  @@index([businessId, ownerUserId, updatedAt(sort: Desc)])
+  @@map("saved_reports")
+}
+
+model SavedReportVersion {
+  id              String              @id @default(uuid())
+  reportId        String              @map("report_id")
+  report          SavedReport         @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  version         Int
+  schemaVersion   Int                 @map("schema_version")
+  plan            Json
+  planSource      AnalyticsPlanSource @map("plan_source")
+  createdByUserId String              @map("created_by_user_id")
+  createdBy       User                @relation("SavedReportVersionCreator", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  createdAt       DateTime            @default(now()) @map("created_at")
+
+  @@unique([reportId, version])
+  @@index([createdByUserId])
+  @@map("saved_report_versions")
 }

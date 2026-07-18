@@ -242,9 +242,13 @@ handle additional phrasing, but its output must pass the same strict schema befo
 ```json
 {
   "question": "Show daily revenue this month",
-  "timezone": "Pacific/Auckland"
+  "timezone": "Pacific/Auckland",
+  "currentPlan": null
 }
 ```
+
+For a follow-up refinement, `currentPlan` may contain the previously validated plan. The server
+validates that context before it reaches a local or provider planner and retains unchanged settings.
 
 A successful translation returns `status: "ready"`, a plan, and `source: "local"` or
 `"provider"`. Ambiguous and unsupported requests return guided `clarification` or `unsupported`
@@ -298,6 +302,26 @@ chart-ready series, tabular rows and bounded execution metadata:
 
 Execution is limited to a 366-day range, 100 result rows and a 5-second timeout. A timeout returns
 `504 ANALYTICS_TIMEOUT` without exposing database or stack details.
+
+### Saved analytics reports
+
+Saved report routes retain validated plans rather than prompts, SQL, or executable code. Reports are
+private to the authenticated user inside the verified active business; out-of-scope ids return the
+same `404 SAVED_REPORT_NOT_FOUND` response as missing ids.
+
+| Method | Route | Purpose |
+|---|---|---|
+| `GET` | `/api/analytics/saved-reports` | List the current user's report library |
+| `POST` | `/api/analytics/saved-reports` | Save a named validated plan as version 1 |
+| `GET` | `/api/analytics/saved-reports/:id` | Load the latest plan and version metadata |
+| `PATCH` | `/api/analytics/saved-reports/:id` | Rename without changing plan history |
+| `POST` | `/api/analytics/saved-reports/:id/versions` | Append an immutable validated plan version |
+| `POST` | `/api/analytics/saved-reports/:id/duplicate` | Copy the latest version into a new report |
+| `DELETE` | `/api/analytics/saved-reports/:id` | Delete a report and all versions |
+
+Stored versions include the plan schema version, source, creator and timestamps. A future or invalid
+schema is returned with `compatible: false` and no executable plan. CSV exports are generated from
+the displayed execution result so their headers and raw values match the exact-value table.
 
 ## 6. Products
 
