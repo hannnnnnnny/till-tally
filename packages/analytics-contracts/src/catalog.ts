@@ -63,8 +63,8 @@ export const ANALYTICS_METRIC_CATALOG = {
   revenue: {
     label: 'Revenue',
     description: 'Recognised sales revenue for imported order items in the selected period.',
-    source: 'OrderItem.lineTotal',
-    aggregation: 'SUM(lineTotal)',
+    source: 'OrderItem.totalPrice',
+    aggregation: 'SUM(totalPrice)',
     unit: 'NZD',
     nullBehavior: 'Missing line totals are excluded; an empty result returns 0.',
     compatibleDimensions: salesDimensions,
@@ -72,8 +72,8 @@ export const ANALYTICS_METRIC_CATALOG = {
   grossProfit: {
     label: 'Gross profit',
     description: 'Revenue less the product cost captured on each imported order item.',
-    source: 'OrderItem.lineTotal - (OrderItem.unitCost * OrderItem.quantity)',
-    aggregation: 'SUM(lineTotal - unitCost * quantity)',
+    source: 'OrderItem.totalPrice - (OrderItem.costPrice * OrderItem.quantity)',
+    aggregation: 'SUM(totalPrice - costPrice * quantity)',
     unit: 'NZD',
     nullBehavior: 'Rows without a usable cost are excluded from gross-profit calculations.',
     compatibleDimensions: salesDimensions,
@@ -118,10 +118,10 @@ export const ANALYTICS_METRIC_CATALOG = {
   currentStock: {
     label: 'Current stock',
     description: 'Latest known on-hand inventory quantity for each product.',
-    source: 'InventorySnapshot.quantityOnHand at the latest snapshot timestamp',
-    aggregation: 'SUM(latest quantityOnHand per product)',
+    source: 'Product.currentStock',
+    aggregation: 'SUM(currentStock)',
     unit: 'units',
-    nullBehavior: 'Products without a snapshot are excluded.',
+    nullBehavior: 'Products without imported stock use the persisted 0 default.',
     compatibleDimensions: inventoryDimensions,
   },
   lowStockProducts: {
@@ -193,9 +193,9 @@ export const ANALYTICS_DIMENSION_CATALOG: Record<
   AnalyticsDimensionId,
   { label: string; source: string; kind: 'temporal' | 'categorical' }
 > = {
-  day: { label: 'Day', source: 'Order.orderedAt calendar day', kind: 'temporal' },
-  week: { label: 'Week', source: 'Order.orderedAt ISO week', kind: 'temporal' },
-  month: { label: 'Month', source: 'Order.orderedAt calendar month', kind: 'temporal' },
+  day: { label: 'Day', source: 'Order.orderDate calendar day', kind: 'temporal' },
+  week: { label: 'Week', source: 'Order.orderDate ISO week', kind: 'temporal' },
+  month: { label: 'Month', source: 'Order.orderDate calendar month', kind: 'temporal' },
   channel: { label: 'Channel', source: 'Order.channel', kind: 'categorical' },
   product: { label: 'Product', source: 'Product.id and Product.name', kind: 'categorical' },
   category: { label: 'Category', source: 'Product.category', kind: 'categorical' },

@@ -1,5 +1,6 @@
 import express from 'express';
 import 'dotenv/config';
+import { analyticsRouter } from './analytics/routes';
 import { authRouter } from './auth/routes';
 import { businessesRouter } from './businesses/routes';
 import { dashboardRouter } from './dashboard/routes';
@@ -17,6 +18,7 @@ app.disable('x-powered-by');
 app.set('trust proxy', 1);
 
 app.use(express.json({ limit: '1mb' }));
+app.use('/api/analytics', analyticsRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/businesses', businessesRouter);
 app.use('/api/dashboard', dashboardRouter);

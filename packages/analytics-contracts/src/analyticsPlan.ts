@@ -149,8 +149,8 @@ function isMetricDimensionCompatible(
   return compatibleDimensions.includes(dimension);
 }
 
-function isInventoryOnlyPlan(metrics: readonly AnalyticsMetricId[]): boolean {
-  return metrics.every((metric) => inventoryMetricIds.has(metric));
+function hasInventoryMetric(metrics: readonly AnalyticsMetricId[]): boolean {
+  return metrics.some((metric) => inventoryMetricIds.has(metric));
 }
 
 export const analyticsPlanSchema = z
@@ -205,11 +205,11 @@ export const analyticsPlanSchema = z
     }
 
     for (const [filterIndex, filter] of plan.filters.entries()) {
-      if (filter.field === 'channel' && isInventoryOnlyPlan(plan.metrics)) {
+      if (filter.field === 'channel' && hasInventoryMetric(plan.metrics)) {
         context.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['filters', filterIndex, 'field'],
-          message: 'channel cannot filter inventory-only metrics',
+          message: 'channel cannot filter inventory metrics',
         });
       }
     }

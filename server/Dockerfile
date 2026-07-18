@@ -8,10 +8,13 @@ ENV DATABASE_URL=postgresql://tilltally:tilltally@db:5432/tilltally?schema=publi
 COPY package.json package-lock.json ./
 COPY server/package.json ./server/
 COPY client/package.json ./client/
+COPY packages/analytics-contracts/package.json ./packages/analytics-contracts/
 RUN npm ci
 # Compile the server (tsc -> server/dist).
 COPY tsconfig.base.json ./
+COPY packages/analytics-contracts ./packages/analytics-contracts
 COPY server ./server
+RUN npm run build -w @till-tally/analytics-contracts
 RUN npm run prisma:generate -w server
 RUN npm run build -w server
 
@@ -24,7 +27,9 @@ ENV HEALTHCHECK_URL=http://127.0.0.1:4000/api/health/ready
 COPY package.json package-lock.json ./
 COPY server/package.json ./server/
 COPY client/package.json ./client/
+COPY packages/analytics-contracts/package.json ./packages/analytics-contracts/
 RUN npm ci --omit=dev && npm cache clean --force
+COPY --from=build /app/packages/analytics-contracts/dist ./packages/analytics-contracts/dist
 COPY --from=build /app/server/node_modules/.prisma ./server/node_modules/.prisma
 COPY --from=build /app/server/dist ./server/dist
 EXPOSE 4000

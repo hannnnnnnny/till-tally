@@ -27,13 +27,13 @@ Every object is strict. Unknown keys, metrics, dimensions, filters, operators, c
 
 | Metric | Source and aggregation | Unit | Null behaviour |
 | --- | --- | --- | --- |
-| `revenue` | Sum `OrderItem.lineTotal` | NZD | Missing values excluded; empty result is 0 |
-| `grossProfit` | Sum line total minus captured unit cost times quantity | NZD | Rows without usable cost excluded |
+| `revenue` | Sum `OrderItem.totalPrice` | NZD | Missing values excluded; empty result is 0 |
+| `grossProfit` | Sum total price minus captured `costPrice` times quantity | NZD | Rows without usable cost excluded |
 | `grossMarginPct` | Gross profit divided by revenue, times 100 | Percent | 0 when revenue is 0 |
 | `orders` | Distinct `Order.id` count | Orders | Empty result is 0 |
 | `averageOrderValue` | Revenue divided by distinct orders | NZD | 0 when there are no orders |
 | `unitsSold` | Sum `OrderItem.quantity` | Units | Missing values excluded; empty result is 0 |
-| `currentStock` | Sum each product's latest `InventorySnapshot.quantityOnHand` | Units | Products without a snapshot excluded |
+| `currentStock` | Sum `Product.currentStock` | Units | Products without imported stock use 0 |
 | `lowStockProducts` | Distinct products classified `LOW_STOCK` | Products | Insufficient evidence excluded |
 | `stockoutRiskProducts` | Distinct products classified `STOCKOUT_RISK` | Products | Insufficient evidence excluded |
 | `reorderSoonProducts` | Distinct products classified `REORDER_SOON` | Products | Insufficient evidence excluded |
@@ -63,7 +63,7 @@ Sales metrics support the dimensions listed in the catalog. Latest-stock metrics
 | `category`, `sku`, `vendor` | `eq`, `in`, `notIn`, `contains` |
 | `currentStock` | `eq`, `gte`, `lte` |
 
-`in` and `notIn` require a non-empty list. Stock filters require a non-negative number. Other filters require text. An inventory-only plan cannot use a channel filter.
+`in` and `notIn` require a non-empty list. Stock filters require a non-negative number. Other filters require text. A plan containing an inventory metric cannot use a channel filter.
 
 ## Trust boundary
 
