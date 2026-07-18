@@ -135,14 +135,14 @@ export function InventoryPage() {
         )}
 
         {activeBusinessHeaders && (
-          <dl className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-7">
+          <dl className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-3 2xl:grid-cols-7">
             {isLoading ? (
               <InventorySummarySkeleton />
             ) : (
               summaryCards.map((card) => (
-                <div key={card.key} className={`rounded-md border p-4 ${card.className}`}>
+                <div key={card.key} className={`rounded-md border p-3 sm:p-4 ${card.className}`}>
                   <dt className="text-xs font-semibold uppercase">{card.label}</dt>
-                  <dd className="mt-2 text-3xl font-bold">{card.value}</dd>
+                  <dd className="mt-2 text-2xl font-bold sm:text-3xl">{card.value}</dd>
                   <p className="mt-2 text-xs opacity-80">{card.helper}</p>
                 </div>
               ))
@@ -235,7 +235,7 @@ function InventoryRiskRow({ item }: { item: InventoryRiskItem }) {
         <p className="mt-1 text-xs text-slate-500">{item.category ?? 'Uncategorised'}</p>
       </div>
 
-      <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <dl className="grid grid-cols-2 gap-3 xl:grid-cols-3">
         <InventoryMetric label="Stock" value={formatInventoryStock(item.currentStock)} />
         <InventoryMetric label="30-day units" value={String(item.unitsSoldLast30)} />
         <InventoryMetric label="Sales pace" value={formatDailySalesRate(item.dailySalesRate)} />
