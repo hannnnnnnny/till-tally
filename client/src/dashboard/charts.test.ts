@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { buildChannelChartData, buildSalesTrendChartData, formatCompactCurrency } from './charts';
+import {
+  buildChannelChartData,
+  buildSalesTrendChartData,
+  formatChartCurrency,
+  formatChartDate,
+  formatCompactCurrency,
+  toggleSalesSeries,
+  toggleSelectedChannel,
+} from './charts';
 import { type ChannelBreakdownResult, type SalesTrendResult } from './types';
 
 describe('dashboard chart data', () => {
@@ -59,6 +67,23 @@ describe('dashboard chart data', () => {
   it('formats compact currency for chart axes', () => {
     assert.equal(formatCompactCurrency(1250), '$1.3K');
     assert.equal(formatCompactCurrency(0), '$0');
+  });
+
+  it('formats exact chart values and dates for tooltips and data tables', () => {
+    assert.equal(formatChartCurrency(1250.5), '$1,250.50');
+    assert.equal(formatChartDate('2026-06-01'), '1 Jun 2026');
+  });
+
+  it('toggles trend series while keeping at least one series visible', () => {
+    assert.deepEqual(toggleSalesSeries(['sales', 'grossProfit'], 'grossProfit'), ['sales']);
+    assert.deepEqual(toggleSalesSeries(['sales'], 'sales'), ['sales']);
+    assert.deepEqual(toggleSalesSeries(['sales'], 'grossProfit'), ['sales', 'grossProfit']);
+  });
+
+  it('selects and clears a channel for chart exploration', () => {
+    assert.equal(toggleSelectedChannel(null, 'SHOPIFY'), 'SHOPIFY');
+    assert.equal(toggleSelectedChannel('SHOPIFY', 'TRADE_ME'), 'TRADE_ME');
+    assert.equal(toggleSelectedChannel('SHOPIFY', 'SHOPIFY'), null);
   });
 });
 

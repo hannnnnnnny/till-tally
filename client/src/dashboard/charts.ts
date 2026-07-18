@@ -6,6 +6,10 @@ import {
   type SalesTrendResult,
 } from './types';
 
+export type SalesSeriesKey = 'sales' | 'grossProfit';
+
+const SALES_SERIES_ORDER: SalesSeriesKey[] = ['sales', 'grossProfit'];
+
 const CHANNEL_LABELS: Record<DashboardSalesChannel, string> = {
   SHOPIFY: 'Shopify',
   TRADE_ME: 'Trade Me',
@@ -32,10 +36,24 @@ const compactCurrencyFormatter = new Intl.NumberFormat('en-NZ', {
   style: 'currency',
 });
 
+const currencyFormatter = new Intl.NumberFormat('en-NZ', {
+  currency: 'NZD',
+  maximumFractionDigits: 2,
+  minimumFractionDigits: 2,
+  style: 'currency',
+});
+
 const shortDateFormatter = new Intl.DateTimeFormat('en-US', {
   day: 'numeric',
   month: 'short',
   timeZone: 'UTC',
+});
+
+const fullDateFormatter = new Intl.DateTimeFormat('en-NZ', {
+  day: 'numeric',
+  month: 'short',
+  timeZone: 'UTC',
+  year: 'numeric',
 });
 
 export function buildSalesTrendChartData(result: SalesTrendResult): SalesTrendChartPoint[] {
@@ -63,6 +81,38 @@ export function buildChannelChartData(result: ChannelBreakdownResult): ChannelCh
 
 export function formatCompactCurrency(value: number): string {
   return compactCurrencyFormatter.format(value);
+}
+
+export function formatChartCurrency(value: number): string {
+  return currencyFormatter.format(value);
+}
+
+export function formatChartDate(date: string): string {
+  return fullDateFormatter.format(new Date(`${date}T00:00:00.000Z`));
+}
+
+export function toggleSalesSeries(
+  visibleSeries: SalesSeriesKey[],
+  selectedSeries: SalesSeriesKey,
+): SalesSeriesKey[] {
+  if (visibleSeries.includes(selectedSeries)) {
+    if (visibleSeries.length === 1) {
+      return visibleSeries;
+    }
+
+    return visibleSeries.filter((series) => series !== selectedSeries);
+  }
+
+  return SALES_SERIES_ORDER.filter(
+    (series) => series === selectedSeries || visibleSeries.includes(series),
+  );
+}
+
+export function toggleSelectedChannel(
+  selectedChannel: DashboardSalesChannel | null,
+  nextChannel: DashboardSalesChannel,
+): DashboardSalesChannel | null {
+  return selectedChannel === nextChannel ? null : nextChannel;
 }
 
 function formatShortDate(date: string): string {
