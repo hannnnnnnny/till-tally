@@ -6,17 +6,18 @@
   "license": "MIT",
   "workspaces": [
     "client",
-    "server"
+    "server",
+    "packages/*"
   ],
   "scripts": {
     "dev:client": "npm run dev -w client",
     "dev:server": "npm run dev -w server",
-    "build": "npm run build -w client && npm run build -w server",
+    "build": "npm run build -w @till-tally/analytics-contracts && npm run build -w client && npm run build -w server",
     "build:client": "npm run build -w client",
     "build:server": "npm run build -w server",
     "db:seed": "npm run prisma:seed -w server",
     "prisma:validate": "npm run prisma:validate -w server",
-    "typecheck": "npm run typecheck -w client && npm run typecheck -w server && npm run typecheck:e2e",
+    "typecheck": "npm run build -w @till-tally/analytics-contracts && npm run typecheck -w @till-tally/analytics-contracts && npm run typecheck -w client && npm run typecheck -w server && npm run typecheck:e2e",
     "typecheck:e2e": "tsc --noEmit -p tsconfig.e2e.json",
     "test:e2e": "playwright test",
     "lint": "eslint .",
