@@ -1,9 +1,32 @@
+import {
+  BarChart3,
+  Building2,
+  FileChartColumn,
+  LayoutDashboard,
+  LogOut,
+  PackageSearch,
+  Settings2,
+  Upload,
+  Warehouse,
+  type LucideIcon,
+} from 'lucide-react';
 import { useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { useBusinesses } from '../businesses/BusinessContext';
-import { APP_NAV_ITEMS, getRouteTitle } from '../navigation/routes';
+import { APP_NAV_ITEMS, type AppRouteId, getRouteTitle } from '../navigation/routes';
+import { getActionClassName } from '../ui/layout';
 import { InlineNotice } from '../ui/StatePanel';
+
+const NAV_ICONS: Record<AppRouteId, LucideIcon> = {
+  channels: BarChart3,
+  dashboard: LayoutDashboard,
+  imports: Upload,
+  inventory: Warehouse,
+  products: PackageSearch,
+  reports: FileChartColumn,
+  workspace: Settings2,
+};
 
 export function AppShell() {
   const location = useLocation();
@@ -23,127 +46,145 @@ export function AppShell() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-950 lg:grid lg:grid-cols-[260px_minmax(0,1fr)]">
+    <div className="min-h-screen bg-slate-50 text-slate-950 lg:grid lg:grid-cols-[232px_minmax(0,1fr)]">
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-white focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-slate-900 focus:shadow"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-white focus:px-3 focus:py-2 focus:text-sm focus:font-semibold focus:text-slate-900 focus:shadow-lg"
       >
         Skip to main content
       </a>
 
-      <aside className="hidden border-r border-slate-200 bg-white lg:flex lg:min-h-screen lg:flex-col">
-        <div className="flex h-16 items-center gap-3 border-b border-slate-200 px-5">
-          <img src="/favicon.svg" alt="" className="h-9 w-9 rounded-xl" />
+      <aside className="hidden border-r border-slate-200 bg-white lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col">
+        <div className="flex h-16 items-center gap-3 border-b border-slate-200 px-4">
+          <img src="/favicon.svg" alt="" className="h-9 w-9 rounded-lg" />
           <div className="min-w-0">
             <p className="text-lg font-bold text-slate-950">TillTally</p>
-            <p className="truncate text-xs font-medium text-slate-500">Retail analytics</p>
+            <p className="truncate text-xs font-medium text-slate-500">Retail intelligence</p>
           </div>
         </div>
 
-        <nav className="flex-1 space-y-1 px-3 py-4" aria-label="Primary">
-          {APP_NAV_ITEMS.map((item) => (
-            <NavLink
-              key={item.id}
-              to={item.path}
-              className={({ isActive }) =>
-                `block rounded-md px-3 py-2.5 text-sm font-medium transition ${
-                  isActive
-                    ? 'bg-slate-900 text-white'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'
-                }`
-              }
-            >
-              <span className="block">{item.label}</span>
-              <span className="mt-0.5 block text-xs opacity-70">{item.description}</span>
-            </NavLink>
-          ))}
-        </nav>
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
+          <p className="px-3 text-xs font-semibold text-slate-400">Workspace</p>
+          <nav className="mt-2 space-y-1" aria-label="Primary">
+            {APP_NAV_ITEMS.map((item) => {
+              const Icon = NAV_ICONS[item.id];
 
-        <div className="border-t border-slate-200 px-5 py-4">
-          <p className="text-xs font-medium text-slate-500">Signed in as</p>
-          <p className="mt-1 truncate text-sm font-semibold text-slate-900">{user?.name}</p>
-          <p className="mt-0.5 truncate text-xs text-slate-500">{user?.email}</p>
+              return (
+                <NavLink
+                  key={item.id}
+                  to={item.path}
+                  title={item.description}
+                  className={({ isActive }) =>
+                    `group flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 ${
+                      isActive
+                        ? 'bg-slate-950 text-white'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'
+                    }`
+                  }
+                >
+                  <Icon
+                    aria-hidden="true"
+                    className="h-[18px] w-[18px] shrink-0"
+                    strokeWidth={1.8}
+                  />
+                  <span className="truncate">{item.label}</span>
+                </NavLink>
+              );
+            })}
+          </nav>
+        </div>
+
+        <div className="border-t border-slate-200 px-4 py-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-slate-100 text-sm font-bold text-slate-700">
+              {getInitials(user?.name)}
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-slate-900">{user?.name}</p>
+              <p className="truncate text-xs text-slate-500">{user?.email}</p>
+            </div>
+          </div>
         </div>
       </aside>
 
       <div className="min-w-0">
         <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
-          <div className="flex min-h-16 flex-col gap-3 px-3 py-3 min-[375px]:px-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+          <div className="mx-auto flex min-h-16 max-w-[1536px] flex-col gap-3 px-3 py-3 min-[375px]:px-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
             <div className="flex min-w-0 items-center gap-3">
-              <img src="/favicon.svg" alt="" className="h-9 w-9 rounded-xl lg:hidden" />
+              <img src="/favicon.svg" alt="" className="h-9 w-9 rounded-lg lg:hidden" />
               <div className="min-w-0">
-                <p className="truncate text-xs font-medium text-slate-500">
-                  {activeBusiness?.name ?? 'No active workspace'}
-                </p>
+                <div className="flex min-w-0 items-center gap-2 text-xs font-medium text-slate-500">
+                  <Building2
+                    aria-hidden="true"
+                    className="h-3.5 w-3.5 shrink-0"
+                    strokeWidth={1.8}
+                  />
+                  <span className="truncate">{getBusinessContext(activeBusiness)}</span>
+                  {activeBusiness && (
+                    <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">
+                      {activeBusiness.role}
+                    </span>
+                  )}
+                </div>
                 <h1 className="truncate text-xl font-bold text-slate-950">{pageTitle}</h1>
               </div>
             </div>
 
-            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-end">
+            <div className="flex w-full items-end gap-2 sm:w-auto">
               <BusinessSelector />
               <button
                 type="button"
                 onClick={handleSignOut}
                 disabled={isSigningOut}
-                className="h-10 w-full rounded-md border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400 sm:w-auto"
+                className={getActionClassName('secondary', 'shrink-0')}
               >
-                {isSigningOut ? 'Signing out...' : 'Sign out'}
+                <LogOut aria-hidden="true" className="h-4 w-4" strokeWidth={1.8} />
+                <span className="hidden min-[430px]:inline">
+                  {isSigningOut ? 'Signing out...' : 'Sign out'}
+                </span>
               </button>
             </div>
           </div>
         </header>
 
-        {activeBusiness && (
-          <section className="border-b border-slate-200 bg-white px-4 py-4 sm:px-6 lg:px-8">
-            <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-500">Active workspace</p>
-                <p className="mt-1 text-lg font-bold text-slate-950">{activeBusiness.name}</p>
-                <p className="mt-0.5 text-sm text-slate-600">
-                  {[activeBusiness.industry, activeBusiness.city].filter(Boolean).join(' / ') ||
-                    'Workspace'}
-                </p>
-              </div>
-              <span className="w-fit rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
-                {activeBusiness.role}
-              </span>
-            </div>
-          </section>
-        )}
-
         {!activeBusiness && businesses.length === 0 && (
-          <section className="border-b border-slate-200 bg-white px-4 py-4 sm:px-6 lg:px-8">
-            <InlineNotice tone="warning" className="mx-auto max-w-7xl">
+          <div className="border-b border-slate-200 bg-white px-4 py-3 sm:px-6 lg:px-8">
+            <InlineNotice tone="warning" className="mx-auto max-w-[1536px]">
               Create a business to unlock workspace data.
             </InlineNotice>
-          </section>
+          </div>
         )}
 
         <main
           id="main-content"
-          className="mx-auto max-w-7xl px-3 py-5 pb-[calc(8rem+env(safe-area-inset-bottom))] min-[375px]:px-4 sm:px-6 sm:py-6 lg:px-8 lg:pb-8"
+          className="mx-auto max-w-[1536px] px-3 py-5 pb-[calc(8rem+env(safe-area-inset-bottom))] min-[375px]:px-4 sm:px-6 sm:py-7 lg:px-8 lg:pb-8"
         >
           <Outlet />
         </main>
       </div>
 
       <nav
-        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 gap-1 border-t border-slate-200 bg-white px-1.5 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-lg min-[375px]:px-2 sm:grid-cols-7 lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 gap-1 border-t border-slate-200 bg-white px-1.5 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(15,23,42,0.08)] min-[375px]:px-2 sm:grid-cols-7 lg:hidden"
         aria-label="Primary"
       >
-        {APP_NAV_ITEMS.map((item) => (
-          <NavLink
-            key={item.id}
-            to={item.path}
-            className={({ isActive }) =>
-              `rounded-md px-2 py-2 text-center text-xs font-medium ${
-                isActive ? 'bg-slate-900 text-white' : 'text-slate-600'
-              }`
-            }
-          >
-            {item.label}
-          </NavLink>
-        ))}
+        {APP_NAV_ITEMS.map((item) => {
+          const Icon = NAV_ICONS[item.id];
+
+          return (
+            <NavLink
+              key={item.id}
+              to={item.path}
+              className={({ isActive }) =>
+                `flex min-h-12 flex-col items-center justify-center gap-1 rounded-md px-1 text-center text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
+                  isActive ? 'bg-slate-950 text-white' : 'text-slate-600 hover:bg-slate-100'
+                }`
+              }
+            >
+              <Icon aria-hidden="true" className="h-4 w-4" strokeWidth={1.8} />
+              <span className="truncate">{item.label}</span>
+            </NavLink>
+          );
+        })}
       </nav>
     </div>
   );
@@ -157,16 +198,13 @@ function BusinessSelector() {
   }
 
   return (
-    <div className="w-full min-w-0 sm:w-64">
-      <label htmlFor="active-business" className="block text-sm font-medium text-slate-700">
-        Active business
-      </label>
+    <label className="min-w-0 flex-1 sm:w-56 sm:flex-none">
+      <span className="sr-only">Active business</span>
       <select
-        id="active-business"
         value={activeBusinessId ?? ''}
         onChange={(event) => setActiveBusinessId(event.target.value)}
         disabled={status === 'loading'}
-        className="mt-1 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 disabled:cursor-not-allowed disabled:bg-slate-100"
+        className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-900 outline-none transition-colors focus:border-blue-600 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100"
       >
         {businesses.map((business) => (
           <option key={business.id} value={business.id}>
@@ -174,6 +212,28 @@ function BusinessSelector() {
           </option>
         ))}
       </select>
-    </div>
+    </label>
   );
+}
+
+function getBusinessContext(business: ReturnType<typeof useBusinesses>['activeBusiness']): string {
+  if (!business) {
+    return 'No active business';
+  }
+
+  const details = [business.industry, business.city].filter(Boolean).join(' / ');
+  return details ? `${business.name} · ${details}` : business.name;
+}
+
+function getInitials(name: string | undefined): string {
+  if (!name) {
+    return 'TT';
+  }
+
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('');
 }

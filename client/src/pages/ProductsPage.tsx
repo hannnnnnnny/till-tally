@@ -17,6 +17,8 @@ import {
   type ProductPerformanceSort,
   type ProductSortOrder,
 } from '../products/types';
+import { PageHeader, Surface } from '../ui/PageLayout';
+import { getActionClassName } from '../ui/layout';
 import { InlineNotice, StatePanel } from '../ui/StatePanel';
 
 const PRODUCT_COLUMNS = ['Product', 'Revenue', 'Margin', 'Units', 'ABC', 'Status'];
@@ -132,80 +134,78 @@ export function ProductsPage() {
   }
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <p className="text-sm font-medium text-slate-500">Products</p>
-          <h2 className="mt-1 text-2xl font-bold text-slate-950">Performance</h2>
-          <p className="mt-1 text-sm text-slate-600">
-            {activeBusiness
-              ? `${activeBusiness.name} product ranking`
-              : 'Select a business to view products'}
-          </p>
-        </div>
+    <Surface>
+      <PageHeader
+        eyebrow="Products"
+        title="Performance"
+        description={
+          activeBusiness
+            ? `${activeBusiness.name} product ranking`
+            : 'Select a business to view products'
+        }
+      />
 
-        <div className="grid gap-2 sm:grid-cols-2 lg:w-[640px] xl:grid-cols-[1.2fr_1fr_1fr_1fr_auto]">
-          <label className="text-sm font-medium text-slate-700">
-            <span className="sr-only">Search products</span>
-            <input
-              type="search"
-              value={searchInput}
-              onChange={(event) => handleSearchChange(event.target.value)}
-              placeholder="Search SKU, product, vendor"
-              className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            />
-          </label>
+      <div className="mt-5 grid gap-2 border-y border-slate-200 bg-slate-50/70 px-3 py-3 sm:grid-cols-2 lg:grid-cols-[1.2fr_1fr_1fr_1fr_auto] lg:px-4">
+        <label className="text-sm font-medium text-slate-700">
+          <span className="sr-only">Search products</span>
+          <input
+            type="search"
+            value={searchInput}
+            onChange={(event) => handleSearchChange(event.target.value)}
+            placeholder="Search SKU, product, vendor"
+            className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+          />
+        </label>
 
-          <label className="text-sm font-medium text-slate-700">
-            <span className="sr-only">Filter by category</span>
-            <input
-              type="text"
-              value={category}
-              onChange={(event) => handleCategoryChange(event.target.value)}
-              placeholder="Category"
-              className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            />
-          </label>
+        <label className="text-sm font-medium text-slate-700">
+          <span className="sr-only">Filter by category</span>
+          <input
+            type="text"
+            value={category}
+            onChange={(event) => handleCategoryChange(event.target.value)}
+            placeholder="Category"
+            className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+          />
+        </label>
 
-          <label className="text-sm font-medium text-slate-700">
-            <span className="sr-only">Filter by status</span>
-            <select
-              value={statusFilter}
-              onChange={(event) => handleStatusFilterChange(event.target.value)}
-              className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            >
-              <option value="">All status</option>
-              {PRODUCT_STATUS_FILTERS.map((label) => (
-                <option key={label} value={label}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="text-sm font-medium text-slate-700">
-            <span className="sr-only">Sort products</span>
-            <select
-              value={sort}
-              onChange={(event) => handleSortChange(event.target.value as ProductPerformanceSort)}
-              className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            >
-              {SORT_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <button
-            type="button"
-            onClick={handleOrderToggle}
-            className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        <label className="text-sm font-medium text-slate-700">
+          <span className="sr-only">Filter by status</span>
+          <select
+            value={statusFilter}
+            onChange={(event) => handleStatusFilterChange(event.target.value)}
+            className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
           >
-            {order === 'desc' ? 'Desc' : 'Asc'}
-          </button>
-        </div>
+            <option value="">All status</option>
+            {PRODUCT_STATUS_FILTERS.map((label) => (
+              <option key={label} value={label}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="text-sm font-medium text-slate-700">
+          <span className="sr-only">Sort products</span>
+          <select
+            value={sort}
+            onChange={(event) => handleSortChange(event.target.value as ProductPerformanceSort)}
+            className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+          >
+            {SORT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <button
+          type="button"
+          onClick={handleOrderToggle}
+          className={getActionClassName('secondary')}
+        >
+          {order === 'desc' ? 'Desc' : 'Asc'}
+        </button>
       </div>
 
       {businessStatus !== 'loading' && !activeBusinessHeaders && (
@@ -296,7 +296,7 @@ export function ProductsPage() {
           </div>
         </>
       )}
-    </section>
+    </Surface>
   );
 }
 
