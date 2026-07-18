@@ -27,3 +27,9 @@ uploads/
 coverage/
 playwright-report/
 test-results/
+
+# Local AI tooling scratch output — never commit
+docs/superpowers/
+.impeccable/
+.playwright-cli/
+output/
