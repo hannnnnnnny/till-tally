@@ -55,7 +55,7 @@ jobs:
         run: npm run test:analytics-evals -w server
 
       - name: Test
-        # Runs each workspace's test script if present; a no-op until tests exist.
+        # Runs every workspace test suite with ephemeral JWT secrets.
         env:
           NODE_ENV: test
         run: |
