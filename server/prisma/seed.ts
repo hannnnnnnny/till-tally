@@ -3,6 +3,7 @@ import path from 'node:path';
 import { ImportStatus, ImportType, PrismaClient, Role, SalesChannel } from '@prisma/client';
 import { parse as parseCsv } from 'csv-parse/sync';
 import { hashPassword } from '../src/auth/password';
+import { computeSampleDateShiftDays, shiftSampleDate } from '../src/db/seedSampleDates';
 import { assertSeedIsAllowed } from '../src/db/seedSafety';
 
 const prisma = new PrismaClient();
@@ -64,6 +65,22 @@ async function main() {
     readSampleCsv<InventorySnapshotCsvRow>('inventory_snapshots.csv'),
   ]);
 
+  // Shift static sample dates so the demo always has data inside the default
+  // 30-day dashboard and analytics windows, with the newest activity yesterday.
+  const seededAt = new Date();
+  const sampleDateShiftDays = computeSampleDateShiftDays(
+    [
+      ...orders.map((order) => order.order_date),
+      ...products.map((product) => product.last_sold_at).filter(Boolean),
+      ...inventorySnapshots.map((snapshot) => snapshot.snapshot_date),
+    ],
+    seededAt,
+  );
+  const toShiftedUtcDate = (value: string): Date =>
+    toUtcDate(shiftSampleDate(value, sampleDateShiftDays));
+  const importJobCreatedAt = (minutesBeforeSeeding: number): Date =>
+    new Date(seededAt.getTime() - minutesBeforeSeeding * 60_000);
+
   const passwordHash = await hashPassword(DEMO_USER.password);
   const user = await prisma.user.upsert({
     where: {
@@ -111,7 +128,7 @@ async function main() {
       rowsTotal: products.length,
       rowsImported: products.length,
       rowsFailed: 0,
-      createdAt: toUtcDate('2026-06-24'),
+      createdAt: importJobCreatedAt(2),
     },
   });
 
@@ -128,7 +145,7 @@ async function main() {
         vendor: product.vendor || null,
         costPrice: product.cost_price,
         currentStock: toInteger(product.current_stock),
-        lastSoldAt: product.last_sold_at ? toUtcDate(product.last_sold_at) : null,
+        lastSoldAt: product.last_sold_at ? toShiftedUtcDate(product.last_sold_at) : null,
       },
     });
 
@@ -144,7 +161,7 @@ async function main() {
       rowsTotal: orders.length,
       rowsImported: orders.length,
       rowsFailed: 0,
-      createdAt: toUtcDate('2026-06-25'),
+      createdAt: importJobCreatedAt(1),
     },
   });
 
@@ -156,7 +173,7 @@ async function main() {
         businessId: business.id,
         importJobId: orderImportJob.id,
         orderNumber: order.order_number,
-        orderDate: toUtcDate(order.order_date),
+        orderDate: toShiftedUtcDate(order.order_date),
         channel: mapSalesChannel(order.channel),
         totalAmount: order.total_amount,
         discountAmount: order.discount_amount || '0.00',
@@ -184,7 +201,7 @@ async function main() {
       rowsTotal: inventorySnapshots.length,
       rowsImported: inventorySnapshots.length,
       rowsFailed: 0,
-      createdAt: toUtcDate('2026-06-26'),
+      createdAt: importJobCreatedAt(0),
     },
   });
 
@@ -199,7 +216,7 @@ async function main() {
       data: {
         productId,
         stockQuantity: toInteger(snapshot.stock_quantity),
-        snapshotDate: toUtcDate(snapshot.snapshot_date),
+        snapshotDate: toShiftedUtcDate(snapshot.snapshot_date),
       },
     });
   }
