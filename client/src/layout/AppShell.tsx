@@ -5,6 +5,7 @@ import {
   Ellipsis,
   LayoutDashboard,
   LogOut,
+  MessageSquareText,
   PackageSearch,
   Settings2,
   Upload,
@@ -26,6 +27,7 @@ import { getActionClassName } from '../ui/layout';
 import { InlineNotice } from '../ui/StatePanel';
 
 const NAV_ICONS: Record<AppRouteId, LucideIcon> = {
+  analytics: MessageSquareText,
   channels: BarChart3,
   dashboard: LayoutDashboard,
   imports: Upload,
