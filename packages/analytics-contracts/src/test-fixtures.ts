@@ -81,4 +81,12 @@ export const invalidAnalyticsPlanFixtures = [
     name: 'incompatible line chart',
     plan: { ...validAnalyticsPlanFixtures[1], chart: { type: 'line' } },
   },
+  {
+    name: 'channel filter with a mixed inventory plan',
+    plan: {
+      ...validAnalyticsPlanFixtures[1],
+      metrics: ['revenue', 'currentStock'],
+      dimensions: ['category'],
+    },
+  },
 ] as const;

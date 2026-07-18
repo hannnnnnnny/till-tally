@@ -227,6 +227,59 @@ Per-channel aggregation (channel analysis, [`TT.md`](../TT.md) §10.7).
 
 ---
 
+## 5A. Analytics Builder
+
+Analytics builder endpoints accept only the strict, versioned `AnalyticsPlan` contract from
+`@till-tally/analytics-contracts`. Both routes require a bearer access token and a verified
+`X-Business-Id` membership. Business scope is always taken from middleware, never from the body.
+
+### `POST /api/analytics/preview`
+
+Validates a plan and returns its title, datasets, table columns and chart shape without reading
+business data. Use this before execution to render a safe query preview.
+
+```json
+{
+  "schemaVersion": 1,
+  "metrics": ["revenue", "grossProfit"],
+  "dimensions": ["day"],
+  "dateRange": {
+    "from": "2026-06-01",
+    "to": "2026-06-30",
+    "timezone": "Pacific/Auckland"
+  },
+  "filters": [],
+  "sort": [{ "field": "day", "direction": "asc" }],
+  "limit": 31,
+  "chart": { "type": "line" }
+}
+```
+
+Unknown keys, raw query fragments and unsupported metric/dimension combinations return
+`400 INVALID_ANALYTICS_PLAN`.
+
+### `POST /api/analytics/execute`
+
+Validates and executes the same plan through allowlisted Prisma reads. The response contains
+chart-ready series, tabular rows and bounded execution metadata:
+
+```json
+{
+  "table": { "columns": [], "rows": [] },
+  "chart": { "type": "line", "categoryKey": "day", "series": [] },
+  "meta": {
+    "rowCount": 0,
+    "totalRows": 0,
+    "truncated": false,
+    "durationMs": 4,
+    "executedAt": "2026-07-19T00:00:00.000Z"
+  }
+}
+```
+
+Execution is limited to a 366-day range, 100 result rows and a 5-second timeout. A timeout returns
+`504 ANALYTICS_TIMEOUT` without exposing database or stack details.
+
 ## 6. Products
 
 ### `GET /api/products/performance`
