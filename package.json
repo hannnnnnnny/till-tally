@@ -16,6 +16,7 @@
     "build:client": "npm run build -w client",
     "build:server": "npm run build -w server",
     "db:seed": "npm run prisma:seed -w server",
+    "demo:record": "tsx scripts/record-demo-fixtures.ts",
     "prisma:validate": "npm run prisma:validate -w server",
     "typecheck": "npm run build -w @till-tally/analytics-contracts && npm run typecheck -w @till-tally/analytics-contracts && npm run typecheck -w client && npm run typecheck -w server && npm run typecheck:e2e",
     "typecheck:e2e": "tsc --noEmit -p tsconfig.e2e.json",
