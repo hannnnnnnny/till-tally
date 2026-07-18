@@ -11,6 +11,8 @@ import {
 } from '../channels/analysis';
 import { fetchDashboardChannelBreakdown } from '../dashboard/api';
 import { type ChannelBreakdownResult } from '../dashboard/types';
+import { PageHeader, SectionHeader, Surface } from '../ui/PageLayout';
+import { getActionClassName, getPanelClassName } from '../ui/layout';
 import { InlineNotice, MetricSkeletonGrid, StatePanel } from '../ui/StatePanel';
 
 type ChannelAnalysisStatus = 'idle' | 'loading' | 'ready' | 'error';
@@ -81,29 +83,28 @@ export function ChannelsPage() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-sm font-medium text-slate-500">Channels</p>
-            <h2 className="mt-1 text-2xl font-bold text-slate-950">Channel analysis</h2>
-            <p className="mt-1 text-sm text-slate-600">
-              {activeBusiness
-                ? `${activeBusiness.name} sales channel performance`
-                : 'Select a business to compare sales channels'}
-            </p>
-          </div>
-
-          {activeBusinessHeaders && (
-            <button
-              type="button"
-              onClick={() => setReloadKey((currentKey) => currentKey + 1)}
-              disabled={isLoading}
-              className="h-10 w-full rounded-md border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400 sm:w-auto"
-            >
-              {isLoading ? 'Refreshing...' : 'Refresh'}
-            </button>
-          )}
-        </div>
+      <Surface tone="plain">
+        <PageHeader
+          eyebrow="Channels"
+          title="Channel analysis"
+          description={
+            activeBusiness
+              ? `${activeBusiness.name} sales channel performance`
+              : 'Select a business to compare sales channels'
+          }
+          actions={
+            activeBusinessHeaders && (
+              <button
+                type="button"
+                onClick={() => setReloadKey((currentKey) => currentKey + 1)}
+                disabled={isLoading}
+                className={getActionClassName('secondary', 'w-full sm:w-auto')}
+              >
+                {isLoading ? 'Refreshing...' : 'Refresh'}
+              </button>
+            )
+          }
+        />
 
         {businessStatus !== 'loading' && !activeBusinessHeaders && (
           <StatePanel
@@ -134,13 +135,12 @@ export function ChannelsPage() {
             )}
           </dl>
         )}
-      </section>
+      </Surface>
 
       {activeBusinessHeaders && (
         <section className="grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-          <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-            <p className="text-sm font-medium text-slate-500">Revenue mix</p>
-            <h3 className="mt-1 text-xl font-bold text-slate-950">Revenue by channel</h3>
+          <Surface>
+            <SectionHeader eyebrow="Revenue mix" title="Revenue by channel" />
             <ChannelChartState
               error={error}
               hasChannels={hasChannels}
@@ -151,11 +151,10 @@ export function ChannelsPage() {
                 {channelData && <ChannelPieChart data={channelData} />}
               </Suspense>
             </ChannelChartState>
-          </div>
+          </Surface>
 
-          <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-            <p className="text-sm font-medium text-slate-500">Ranking</p>
-            <h3 className="mt-1 text-xl font-bold text-slate-950">Channel leaderboard</h3>
+          <Surface>
+            <SectionHeader eyebrow="Ranking" title="Channel leaderboard" />
             <ChannelLeaderboardState
               error={error}
               hasChannels={hasChannels}
@@ -168,16 +167,13 @@ export function ChannelsPage() {
                 ))}
               </div>
             </ChannelLeaderboardState>
-          </div>
+          </Surface>
         </section>
       )}
 
       {activeBusinessHeaders && (
-        <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-          <div>
-            <p className="text-sm font-medium text-slate-500">Details</p>
-            <h3 className="mt-1 text-xl font-bold text-slate-950">Channel performance table</h3>
-          </div>
+        <Surface>
+          <SectionHeader eyebrow="Details" title="Channel performance table" />
 
           <ChannelTableState
             error={error}
@@ -187,7 +183,7 @@ export function ChannelsPage() {
           >
             <ChannelTable rows={tableRows} />
           </ChannelTableState>
-        </section>
+        </Surface>
       )}
     </div>
   );
@@ -195,7 +191,7 @@ export function ChannelsPage() {
 
 function ChannelMetricCard({ card }: { card: ChannelMetricCard }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
+    <div className={getPanelClassName('metric')}>
       <dt className="text-sm font-medium text-slate-500">{card.label}</dt>
       <dd className="mt-2 text-2xl font-bold text-slate-950">{card.value}</dd>
       <dd className="mt-1 text-xs font-medium text-slate-500">{card.helper}</dd>

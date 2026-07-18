@@ -4,6 +4,8 @@ import { useAuth } from '../auth/AuthContext';
 import { createBusiness } from '../businesses/api';
 import { useBusinesses } from '../businesses/BusinessContext';
 import { type BusinessFormValues, type SalesChannel } from '../businesses/types';
+import { PageHeader, SectionHeader, Surface } from '../ui/PageLayout';
+import { getActionClassName } from '../ui/layout';
 import { InlineNotice, StatePanel } from '../ui/StatePanel';
 
 const CHANNEL_OPTIONS: Array<{ value: SalesChannel; label: string }> = [
@@ -17,9 +19,16 @@ const CHANNEL_OPTIONS: Array<{ value: SalesChannel; label: string }> = [
 
 export function WorkspacePage() {
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
-      <BusinessSetupForm />
-      <BusinessList />
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="Workspace"
+        title="Business settings"
+        description="Create businesses and choose which workspace supplies data across TillTally."
+      />
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
+        <BusinessSetupForm />
+        <BusinessList />
+      </div>
     </div>
   );
 }
@@ -78,11 +87,8 @@ function BusinessSetupForm() {
   }
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-      <div>
-        <p className="text-sm font-medium text-slate-500">Workspace setup</p>
-        <h2 className="mt-1 text-2xl font-bold text-slate-900">Create a business</h2>
-      </div>
+    <Surface>
+      <SectionHeader eyebrow="Workspace setup" title="Create a business" />
 
       {submitError && (
         <InlineNotice tone="error" className="mt-5">
@@ -187,12 +193,12 @@ function BusinessSetupForm() {
         <button
           type="submit"
           disabled={isSubmitting}
-          className="w-full rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-400"
+          className={getActionClassName('primary', 'w-full')}
         >
           {isSubmitting ? 'Creating business...' : 'Create business'}
         </button>
       </form>
-    </section>
+    </Surface>
   );
 }
 
@@ -207,11 +213,8 @@ function BusinessList() {
   const isLoadingBusinesses = businessStatus === 'loading';
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-      <div>
-        <p className="text-sm font-medium text-slate-500">Workspaces</p>
-        <h2 className="mt-1 text-2xl font-bold text-slate-900">Your businesses</h2>
-      </div>
+    <Surface>
+      <SectionHeader eyebrow="Workspaces" title="Your businesses" />
 
       {isLoadingBusinesses && (
         <StatePanel
@@ -270,6 +273,6 @@ function BusinessList() {
           })}
         </div>
       )}
-    </section>
+    </Surface>
   );
 }

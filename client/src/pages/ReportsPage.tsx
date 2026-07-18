@@ -19,6 +19,8 @@ import {
   type WeeklyReportMetricCard,
 } from '../reports/weeklyReport';
 import { type WeeklyReport } from '../reports/types';
+import { PageHeader, Surface } from '../ui/PageLayout';
+import { getActionClassName } from '../ui/layout';
 import { InlineNotice, StatePanel } from '../ui/StatePanel';
 
 type WeeklyReportPageStatus = 'idle' | 'loading' | 'ready' | 'error';
@@ -144,48 +146,47 @@ export function ReportsPage() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-          <div>
-            <p className="text-sm font-medium text-slate-500">Reports</p>
-            <h2 className="mt-1 text-2xl font-bold text-slate-950">Weekly business report</h2>
-            <p className="mt-1 max-w-2xl text-sm text-slate-600">
-              {activeBusiness
-                ? `${activeBusiness.name} weekly summary, product focus, risks, and next actions.`
-                : 'Create or select a business to generate weekly reports.'}
-            </p>
-          </div>
-
-          {activeBusinessHeaders && (
-            <div className="grid gap-2 sm:grid-cols-[minmax(0,220px)_auto_auto] xl:w-auto">
-              <label className="text-sm font-medium text-slate-700">
-                <span className="sr-only">Week start</span>
-                <input
-                  type="date"
-                  value={weekStartInput}
-                  onChange={(event) => setWeekStartInput(event.target.value)}
-                  className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                />
-              </label>
-              <button
-                type="button"
-                onClick={handleLoadReport}
-                disabled={isLoading || isGenerating}
-                className="h-10 rounded-md border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
-              >
-                {isLoading ? 'Loading...' : 'Load'}
-              </button>
-              <button
-                type="button"
-                onClick={handleGenerateReport}
-                disabled={isLoading || isGenerating}
-                className="h-10 rounded-md bg-slate-950 px-4 text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-              >
-                {isGenerating ? 'Generating...' : 'Generate'}
-              </button>
-            </div>
-          )}
-        </div>
+      <Surface>
+        <PageHeader
+          eyebrow="Reports"
+          title="Weekly business report"
+          description={
+            activeBusiness
+              ? `${activeBusiness.name} weekly summary, product focus, risks, and next actions.`
+              : 'Create or select a business to generate weekly reports.'
+          }
+          actions={
+            activeBusinessHeaders && (
+              <div className="grid gap-2 sm:grid-cols-[minmax(0,220px)_auto_auto] xl:w-auto">
+                <label className="text-sm font-medium text-slate-700">
+                  <span className="sr-only">Week start</span>
+                  <input
+                    type="date"
+                    value={weekStartInput}
+                    onChange={(event) => setWeekStartInput(event.target.value)}
+                    className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={handleLoadReport}
+                  disabled={isLoading || isGenerating}
+                  className={getActionClassName('secondary')}
+                >
+                  {isLoading ? 'Loading...' : 'Load'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleGenerateReport}
+                  disabled={isLoading || isGenerating}
+                  className={getActionClassName('primary')}
+                >
+                  {isGenerating ? 'Generating...' : 'Generate'}
+                </button>
+              </div>
+            )
+          }
+        />
 
         {businessStatus !== 'loading' && !activeBusinessHeaders && (
           <StatePanel
@@ -231,7 +232,7 @@ export function ReportsPage() {
             warnings={warnings}
           />
         )}
-      </section>
+      </Surface>
     </div>
   );
 }

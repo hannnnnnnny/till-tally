@@ -13,6 +13,8 @@ import {
   type DashboardSummary,
   type SalesTrendResult,
 } from '../dashboard/types';
+import { PageHeader, SectionHeader, Surface } from '../ui/PageLayout';
+import { getActionClassName, getPanelClassName } from '../ui/layout';
 import { InlineNotice, MetricSkeletonGrid, StatePanel } from '../ui/StatePanel';
 
 type DashboardSummaryStatus = 'idle' | 'loading' | 'ready' | 'error';
@@ -102,27 +104,24 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-sm font-medium text-slate-500">Overview</p>
-            <h2 className="mt-1 text-2xl font-bold text-slate-950">
-              {activeBusiness ? activeBusiness.name : 'Dashboard'}
-            </h2>
-            <p className="mt-1 text-sm text-slate-600">{rangeLabel}</p>
-          </div>
-
-          {activeBusinessHeaders && (
-            <button
-              type="button"
-              onClick={() => setReloadKey((currentKey) => currentKey + 1)}
-              disabled={status === 'loading'}
-              className="h-10 w-full rounded-md border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400 sm:w-auto"
-            >
-              {status === 'loading' ? 'Refreshing...' : 'Refresh'}
-            </button>
-          )}
-        </div>
+      <Surface tone="plain">
+        <PageHeader
+          eyebrow="Overview"
+          title={activeBusiness ? activeBusiness.name : 'Business dashboard'}
+          description={rangeLabel}
+          actions={
+            activeBusinessHeaders && (
+              <button
+                type="button"
+                onClick={() => setReloadKey((currentKey) => currentKey + 1)}
+                disabled={status === 'loading'}
+                className={getActionClassName('secondary', 'w-full sm:w-auto')}
+              >
+                {status === 'loading' ? 'Refreshing...' : 'Refresh'}
+              </button>
+            )
+          }
+        />
 
         {businessStatus === 'loading' && <DashboardKpiSkeleton />}
 
@@ -156,12 +155,11 @@ export function DashboardPage() {
             ))}
           </dl>
         )}
-      </section>
+      </Surface>
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
-        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-          <p className="text-sm font-medium text-slate-500">Sales trend</p>
-          <h3 className="mt-1 text-lg font-bold text-slate-950">Sales and gross profit</h3>
+        <Surface>
+          <SectionHeader eyebrow="Sales trend" title="Sales and gross profit" />
           <DashboardChartState
             businessStatus={businessStatus}
             status={status}
@@ -172,11 +170,10 @@ export function DashboardPage() {
               {dashboardData && <SalesTrendChart data={dashboardData.salesTrend} />}
             </Suspense>
           </DashboardChartState>
-        </div>
+        </Surface>
 
-        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-          <p className="text-sm font-medium text-slate-500">Channel mix</p>
-          <h3 className="mt-1 text-lg font-bold text-slate-950">Revenue by channel</h3>
+        <Surface>
+          <SectionHeader eyebrow="Channel mix" title="Revenue by channel" />
           <DashboardChartState
             businessStatus={businessStatus}
             status={status}
@@ -187,7 +184,7 @@ export function DashboardPage() {
               {dashboardData && <ChannelPieChart data={dashboardData.channelBreakdown} />}
             </Suspense>
           </DashboardChartState>
-        </div>
+        </Surface>
       </section>
     </div>
   );
@@ -239,7 +236,7 @@ function DashboardChartSkeleton() {
 
 function KpiCard({ card }: { card: DashboardKpiCard }) {
   return (
-    <div className={`rounded-md border p-4 ${getKpiCardClass(card.tone)}`}>
+    <div className={getPanelClassName('metric', getKpiCardClass(card.tone))}>
       <dt className="text-sm font-medium text-slate-500">{card.label}</dt>
       <dd className="mt-2 text-2xl font-bold text-slate-950">{card.value}</dd>
       <dd className="mt-1 text-xs font-medium text-slate-500">{card.helper}</dd>
