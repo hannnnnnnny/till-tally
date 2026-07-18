@@ -4,6 +4,7 @@ import {
   type AnalyticsPlannerRequest,
   type AnalyticsPlanningResult,
   type AnalyticsPlanPreview,
+  type SavedAnalyticsReport,
 } from './types';
 
 type RequestOptions = {
@@ -49,19 +50,99 @@ export function executeAnalyticsPlan(
   return postJson('/api/analytics/execute', businessHeaders, plan, options);
 }
 
+export function listSavedAnalyticsReports(
+  businessHeaders: HeadersInit,
+  options: RequestOptions = {},
+): Promise<{ reports: SavedAnalyticsReport[] }> {
+  return requestJson('/api/analytics/saved-reports', businessHeaders, 'GET', undefined, options);
+}
+
+export function getSavedAnalyticsReport(
+  businessHeaders: HeadersInit,
+  reportId: string,
+  options: RequestOptions = {},
+): Promise<SavedAnalyticsReport> {
+  return requestJson(savedReportPath(reportId), businessHeaders, 'GET', undefined, options);
+}
+
+export function createSavedAnalyticsReport(
+  businessHeaders: HeadersInit,
+  input: { name: string; plan: AnalyticsPlan; source: 'local' | 'provider' },
+  options: RequestOptions = {},
+): Promise<SavedAnalyticsReport> {
+  return requestJson('/api/analytics/saved-reports', businessHeaders, 'POST', input, options);
+}
+
+export function renameSavedAnalyticsReport(
+  businessHeaders: HeadersInit,
+  reportId: string,
+  name: string,
+  options: RequestOptions = {},
+): Promise<SavedAnalyticsReport> {
+  return requestJson(savedReportPath(reportId), businessHeaders, 'PATCH', { name }, options);
+}
+
+export function addSavedAnalyticsReportVersion(
+  businessHeaders: HeadersInit,
+  reportId: string,
+  input: { plan: AnalyticsPlan; source: 'local' | 'provider' },
+  options: RequestOptions = {},
+): Promise<SavedAnalyticsReport> {
+  return requestJson(
+    `${savedReportPath(reportId)}/versions`,
+    businessHeaders,
+    'POST',
+    input,
+    options,
+  );
+}
+
+export function duplicateSavedAnalyticsReport(
+  businessHeaders: HeadersInit,
+  reportId: string,
+  name?: string,
+  options: RequestOptions = {},
+): Promise<SavedAnalyticsReport> {
+  return requestJson(
+    `${savedReportPath(reportId)}/duplicate`,
+    businessHeaders,
+    'POST',
+    name ? { name } : {},
+    options,
+  );
+}
+
+export async function deleteSavedAnalyticsReport(
+  businessHeaders: HeadersInit,
+  reportId: string,
+  options: RequestOptions = {},
+): Promise<void> {
+  await requestJson(savedReportPath(reportId), businessHeaders, 'DELETE', undefined, options);
+}
+
 async function postJson<T>(
   path: string,
   businessHeaders: HeadersInit,
   body: unknown,
   options: RequestOptions,
 ): Promise<T> {
+  return requestJson(path, businessHeaders, 'POST', body, options);
+}
+
+async function requestJson<T>(
+  path: string,
+  businessHeaders: HeadersInit,
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+  body: unknown,
+  options: RequestOptions,
+): Promise<T> {
   const headers = new Headers(businessHeaders);
-  headers.set('Content-Type', 'application/json');
+  if (body !== undefined) headers.set('Content-Type', 'application/json');
 
   const response = await fetch(path, {
-    method: 'POST',
+    method,
     headers,
-    body: JSON.stringify(body),
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     signal: options.signal,
   });
 
@@ -69,7 +150,11 @@ async function postJson<T>(
     throw await readApiError(response);
   }
 
-  return (await response.json()) as T;
+  return response.status === 204 ? (undefined as T) : ((await response.json()) as T);
+}
+
+function savedReportPath(reportId: string): string {
+  return `/api/analytics/saved-reports/${encodeURIComponent(reportId)}`;
 }
 
 async function readApiError(response: Response): Promise<AnalyticsApiError> {

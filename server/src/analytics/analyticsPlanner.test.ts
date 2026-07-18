@@ -45,6 +45,25 @@ describe('analytics planner', () => {
     assert.equal(result.plan.chart.type, 'bar');
   });
 
+  it('refines a validated current plan without discarding its existing context', async () => {
+    const planner = createAnalyticsPlanner({ now: fixedNow });
+    const currentPlan = providerPlan.plan;
+
+    const result = await planner.plan({
+      question: 'Show the top 8 as a table instead',
+      timezone: 'Pacific/Auckland',
+      currentPlan,
+    });
+
+    assert.equal(result.status, 'ready');
+    if (result.status !== 'ready') return;
+    assert.deepEqual(result.plan.metrics, ['grossMarginPct']);
+    assert.deepEqual(result.plan.dimensions, ['category']);
+    assert.deepEqual(result.plan.dateRange, currentPlan.dateRange);
+    assert.equal(result.plan.limit, 8);
+    assert.equal(result.plan.chart.type, 'table');
+  });
+
   it('validates provider output and limits prompts to the semantic catalog', async () => {
     let capturedRequest: AnalyticsPlannerProviderRequest | undefined;
     const provider = createProvider(async (request) => {
@@ -64,6 +83,24 @@ describe('analytics planner', () => {
     assert.ok(capturedRequest?.systemPrompt.includes('category'));
     assert.ok(!capturedRequest?.systemPrompt.includes('merchantRows'));
     assert.ok(!capturedRequest?.userPrompt.includes('businessId'));
+  });
+
+  it('passes validated refinement context to providers without executable fields', async () => {
+    let capturedRequest: AnalyticsPlannerProviderRequest | undefined;
+    const provider = createProvider(async (request) => {
+      capturedRequest = request;
+      return JSON.stringify(providerPlan);
+    });
+    const planner = createAnalyticsPlanner({ provider, now: fixedNow });
+
+    await planner.plan({
+      question: 'Use a line chart with a different comparison',
+      timezone: 'Pacific/Auckland',
+      currentPlan: providerPlan.plan,
+    });
+
+    assert.match(capturedRequest?.userPrompt ?? '', /"currentPlan"/);
+    assert.doesNotMatch(capturedRequest?.userPrompt ?? '', /rawSql|javascript/i);
   });
 
   it('retries invalid JSON once and returns a safe fallback', async () => {

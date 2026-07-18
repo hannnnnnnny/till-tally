@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict';
 import { afterEach, describe, it } from 'node:test';
-import { executeAnalyticsPlan, planAnalyticsQuestion, previewAnalyticsPlan } from './api';
+import {
+  createSavedAnalyticsReport,
+  deleteSavedAnalyticsReport,
+  executeAnalyticsPlan,
+  listSavedAnalyticsReports,
+  planAnalyticsQuestion,
+  previewAnalyticsPlan,
+  renameSavedAnalyticsReport,
+} from './api';
 import { type AnalyticsPlan } from './types';
 
 const originalFetch = globalThis.fetch;
@@ -92,6 +100,40 @@ describe('analytics workspace API', () => {
       /Question is too short/,
     );
   });
+
+  it('calls the scoped saved report lifecycle endpoints', async () => {
+    const calls: Array<{ path: string; method: string; body?: unknown }> = [];
+    globalThis.fetch = async (input, init) => {
+      calls.push({
+        path: String(input),
+        method: String(init?.method),
+        ...(init?.body ? { body: JSON.parse(String(init.body)) } : {}),
+      });
+      return String(init?.method) === 'DELETE'
+        ? new Response(null, { status: 204 })
+        : jsonResponse(String(init?.method) === 'GET' ? { reports: [] } : savedReportResponse());
+    };
+
+    await listSavedAnalyticsReports({ 'X-Business-Id': 'business-1' });
+    await createSavedAnalyticsReport({}, { name: 'Revenue', plan: validPlan, source: 'local' });
+    await renameSavedAnalyticsReport({}, 'report/1', 'Revenue pulse');
+    await deleteSavedAnalyticsReport({}, 'report/1');
+
+    assert.deepEqual(calls, [
+      { path: '/api/analytics/saved-reports', method: 'GET' },
+      {
+        path: '/api/analytics/saved-reports',
+        method: 'POST',
+        body: { name: 'Revenue', plan: validPlan, source: 'local' },
+      },
+      {
+        path: '/api/analytics/saved-reports/report%2F1',
+        method: 'PATCH',
+        body: { name: 'Revenue pulse' },
+      },
+      { path: '/api/analytics/saved-reports/report%2F1', method: 'DELETE' },
+    ]);
+  });
 });
 
 const validPlan: AnalyticsPlan = {
@@ -110,4 +152,24 @@ function jsonResponse(body: unknown, status = 200): Response {
     status,
     headers: { 'content-type': 'application/json' },
   });
+}
+
+function savedReportResponse() {
+  return {
+    id: 'report-1',
+    name: 'Revenue',
+    currentVersion: 1,
+    compatible: true,
+    compatibilityMessage: null,
+    latestVersion: {
+      version: 1,
+      schemaVersion: 1,
+      source: 'local',
+      plan: validPlan,
+      createdAt: '2026-07-19T00:00:00.000Z',
+    },
+    versions: [],
+    createdAt: '2026-07-19T00:00:00.000Z',
+    updatedAt: '2026-07-19T00:00:00.000Z',
+  };
 }

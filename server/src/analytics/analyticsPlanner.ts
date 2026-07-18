@@ -154,6 +154,7 @@ function createProviderPrompt(
       question: request.question,
       timezone: request.timezone,
       today: request.today ?? null,
+      currentPlan: request.currentPlan ?? null,
     }),
   };
 }
@@ -169,6 +170,10 @@ function planLocally(request: AnalyticsPlannerRequest, now: Date): AnalyticsPlan
       message: 'That request is outside the supported retail analytics catalog.',
       examples: EXAMPLE_QUESTIONS,
     };
+  }
+
+  if (request.currentPlan) {
+    return refineCurrentPlan(request, question, now);
   }
 
   const metric = detectMetric(question);
@@ -210,6 +215,72 @@ function planLocally(request: AnalyticsPlannerRequest, now: Date): AnalyticsPlan
       dimension ? ` by ${ANALYTICS_DIMENSION_CATALOG[dimension].label.toLocaleLowerCase()}` : ''
     } for the selected period.`,
   };
+}
+
+function refineCurrentPlan(
+  request: AnalyticsPlannerRequest,
+  question: string,
+  now: Date,
+): AnalyticsPlannerOutput | null {
+  if (!request.currentPlan) return null;
+
+  const current = request.currentPlan;
+  const metric = detectMetric(question) ?? current.metrics[0];
+  const detectedDimension = detectDimension(question);
+  const dimensions = /\boverall\b|without (?:a )?(?:grouping|breakdown)/.test(question)
+    ? []
+    : detectedDimension
+      ? [detectedDimension]
+      : current.dimensions;
+  const today = request.today ?? formatDateInTimezone(now, request.timezone);
+  const dateRange = /this month|current month|this week|current week|last 30 days/.test(question)
+    ? resolveDateRange(question, today, request.timezone)
+    : current.dateRange;
+  const explicitLimit = resolveExplicitLimit(question);
+  const chartType = detectChartType(question) ?? current.chart.type;
+  const metricChanged = metric !== current.metrics[0];
+  const dimensionChanged =
+    dimensions.length !== current.dimensions.length ||
+    dimensions.some((dimension, index) => dimension !== current.dimensions[index]);
+  const sort =
+    metricChanged || dimensionChanged ? buildDefaultSort(metric, dimensions[0]) : current.sort;
+
+  try {
+    const plan = parseAnalyticsPlan({
+      ...current,
+      metrics: metricChanged ? [metric] : current.metrics,
+      dimensions,
+      dateRange,
+      sort,
+      limit: explicitLimit ?? current.limit,
+      chart: { type: chartType },
+    });
+
+    return {
+      status: 'ready',
+      plan,
+      message: 'Refined the current validated plan while retaining the rest of its settings.',
+    };
+  } catch {
+    return null;
+  }
+}
+
+function detectChartType(question: string): 'line' | 'bar' | 'donut' | 'table' | null {
+  if (/\btable\b|tabular/.test(question)) return 'table';
+  if (/\bline(?: chart)?\b/.test(question)) return 'line';
+  if (/\bbar(?: chart)?\b/.test(question)) return 'bar';
+  if (/\bdonut\b|\bpie(?: chart)?\b/.test(question)) return 'donut';
+  return null;
+}
+
+function buildDefaultSort(
+  metric: AnalyticsMetricId,
+  dimension: AnalyticsDimensionId | undefined,
+): Array<{ field: AnalyticsMetricId | AnalyticsDimensionId; direction: 'asc' | 'desc' }> {
+  if (!dimension) return [];
+  const temporal = ['day', 'week', 'month'].includes(dimension);
+  return [{ field: temporal ? dimension : metric, direction: temporal ? 'asc' : 'desc' }];
 }
 
 function detectMetric(question: string): AnalyticsMetricId | null {
@@ -266,9 +337,14 @@ function resolveDateRange(
 }
 
 function resolveLimit(question: string, dimension: AnalyticsDimensionId | null): number {
-  const topMatch = question.match(/\btop\s+(\d{1,3})\b/);
-  if (topMatch?.[1]) return Math.min(100, Math.max(1, Number(topMatch[1])));
+  const explicitLimit = resolveExplicitLimit(question);
+  if (explicitLimit !== null) return explicitLimit;
   return dimension ? 31 : 1;
+}
+
+function resolveExplicitLimit(question: string): number | null {
+  const topMatch = question.match(/\btop\s+(\d{1,3})\b/);
+  return topMatch?.[1] ? Math.min(100, Math.max(1, Number(topMatch[1]))) : null;
 }
 
 function formatDateInTimezone(date: Date, timezone: AnalyticsPlannerRequest['timezone']): string {

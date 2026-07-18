@@ -38,6 +38,22 @@ describe('analytics planner contracts', () => {
     );
   });
 
+  it('accepts only a validated analytics plan as refinement context', () => {
+    const request = parseAnalyticsPlannerRequest({
+      question: 'Change this to a bar chart',
+      timezone: 'Pacific/Auckland',
+      currentPlan: validPlan,
+    });
+
+    assert.deepEqual(request.currentPlan, validPlan);
+    assert.throws(() =>
+      parseAnalyticsPlannerRequest({
+        question: 'Run this instead',
+        currentPlan: { ...validPlan, rawSql: 'select * from users' },
+      }),
+    );
+  });
+
   it('accepts ready, clarification, and unsupported provider outputs', () => {
     assert.equal(
       parseAnalyticsPlannerOutput({
