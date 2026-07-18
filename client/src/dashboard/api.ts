@@ -1,12 +1,25 @@
 import { type ChannelBreakdownResult, type DashboardSummary, type SalesTrendResult } from './types';
+import { type DashboardDateRange } from './decisionModel';
 
 type ApiErrorBody = {
   error?: string | { message?: string };
 };
 
 type DashboardRequestOptions = {
+  range?: DashboardDateRange;
   signal?: AbortSignal;
 };
+
+export function buildDashboardSearchParams(range?: DashboardDateRange): URLSearchParams {
+  const searchParams = new URLSearchParams();
+
+  if (range) {
+    searchParams.set('from', range.from);
+    searchParams.set('to', range.to);
+  }
+
+  return searchParams;
+}
 
 async function parseApiError(response: Response): Promise<string> {
   try {
@@ -34,7 +47,7 @@ export async function fetchDashboardSummary(
   businessHeaders: HeadersInit,
   options: DashboardRequestOptions = {},
 ): Promise<DashboardSummary> {
-  const response = await fetch('/api/dashboard/summary', {
+  const response = await fetch(buildDashboardUrl('/api/dashboard/summary', options.range), {
     headers: businessHeaders,
     signal: options.signal,
   });
@@ -46,7 +59,7 @@ export async function fetchDashboardSalesTrend(
   businessHeaders: HeadersInit,
   options: DashboardRequestOptions = {},
 ): Promise<SalesTrendResult> {
-  const response = await fetch('/api/dashboard/sales-trend', {
+  const response = await fetch(buildDashboardUrl('/api/dashboard/sales-trend', options.range), {
     headers: businessHeaders,
     signal: options.signal,
   });
@@ -58,10 +71,18 @@ export async function fetchDashboardChannelBreakdown(
   businessHeaders: HeadersInit,
   options: DashboardRequestOptions = {},
 ): Promise<ChannelBreakdownResult> {
-  const response = await fetch('/api/dashboard/channel-breakdown', {
-    headers: businessHeaders,
-    signal: options.signal,
-  });
+  const response = await fetch(
+    buildDashboardUrl('/api/dashboard/channel-breakdown', options.range),
+    {
+      headers: businessHeaders,
+      signal: options.signal,
+    },
+  );
 
   return readJson<ChannelBreakdownResult>(response);
+}
+
+function buildDashboardUrl(path: string, range?: DashboardDateRange): string {
+  const query = buildDashboardSearchParams(range).toString();
+  return query ? `${path}?${query}` : path;
 }
