@@ -2,7 +2,7 @@ import { type RequestHandler, type Response, Router } from 'express';
 import { TokenExpiredError } from 'jsonwebtoken';
 import { prisma } from '../db/prisma';
 import { asyncHandler } from '../http/asyncHandler';
-import { authRateLimit } from '../http/rateLimit';
+import { authRateLimit, refreshRateLimit } from '../http/rateLimit';
 import { requireAuth } from './middleware';
 import { hashPassword, verifyPassword } from './password';
 import {
@@ -18,6 +18,7 @@ const ACCESS_TOKEN_EXPIRES_IN_SECONDS = 900;
 
 export type AuthRouterOptions = {
   authRateLimit?: RequestHandler;
+  refreshRateLimit?: RequestHandler;
   refreshTokenStore?: RefreshTokenStore;
 };
 
@@ -64,6 +65,7 @@ function isUniqueConstraintError(error: unknown): boolean {
 export function createAuthRouter(options: AuthRouterOptions = {}): Router {
   const router = Router();
   const authLimiter = options.authRateLimit ?? authRateLimit;
+  const refreshLimiter = options.refreshRateLimit ?? refreshRateLimit;
   const tokenStore = options.refreshTokenStore ?? refreshTokenStore;
 
   router.post(
@@ -189,7 +191,7 @@ export function createAuthRouter(options: AuthRouterOptions = {}): Router {
 
   router.post(
     '/refresh',
-    authLimiter,
+    refreshLimiter,
     asyncHandler(async (req, res) => {
       const refreshToken = getRefreshTokenFromRequest(req);
 

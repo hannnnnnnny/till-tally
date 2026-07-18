@@ -37,6 +37,38 @@ describe('auth routes', () => {
     });
   });
 
+  it('gives session refresh its own rate-limit budget separate from credentials', async () => {
+    const app = express();
+
+    app.use(express.json());
+    app.use(
+      '/api/auth',
+      createAuthRouter({
+        authRateLimit: createRateLimiter({
+          code: 'AUTH_RATE_LIMITED',
+          max: 1,
+          message: 'Too many authentication attempts. Please try again later.',
+          windowMs: 60_000,
+        }),
+        refreshRateLimit: createRateLimiter({
+          code: 'AUTH_REFRESH_RATE_LIMITED',
+          max: 1,
+          message: 'Too many session refresh attempts. Please try again later.',
+          windowMs: 60_000,
+        }),
+      }),
+    );
+
+    await request(app).post('/api/auth/login').send({}).expect(400);
+    await request(app).post('/api/auth/login').send({}).expect(429);
+
+    // An exhausted credential budget must not lock signed-in sessions out of refresh.
+    await request(app).post('/api/auth/refresh').send({}).expect(401);
+
+    const limitedRefresh = await request(app).post('/api/auth/refresh').send({}).expect(429);
+    assert.equal(limitedRefresh.body.error.code, 'AUTH_REFRESH_RATE_LIMITED');
+  });
+
   it('revokes the presented refresh token on logout', async () => {
     const revokedTokens: string[] = [];
     const app = express();

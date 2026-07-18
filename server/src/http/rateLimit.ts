@@ -61,3 +61,12 @@ export const analyticsExecutionRateLimit = createRateLimiter({
   message: 'Too many analytics execution requests. Please try again later.',
   windowMs: FIVE_MINUTES_MS,
 });
+
+// Refresh runs on every app boot and periodically for each signed-in session,
+// so it needs a far larger budget than credential attempts on a shared IP.
+export const refreshRateLimit = createRateLimiter({
+  code: 'AUTH_REFRESH_RATE_LIMITED',
+  max: 120,
+  message: 'Too many session refresh attempts. Please try again later.',
+  windowMs: FIFTEEN_MINUTES_MS,
+});
