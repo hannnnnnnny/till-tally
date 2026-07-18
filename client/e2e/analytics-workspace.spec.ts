@@ -15,6 +15,15 @@ const readyPlan = {
   chart: { type: 'bar' },
 };
 
+const dailyPlan = {
+  ...readyPlan,
+  metrics: ['revenue', 'grossProfit'],
+  dimensions: ['day'],
+  filters: [],
+  sort: [{ field: 'day', direction: 'asc' }],
+  chart: { type: 'line' },
+};
+
 test.beforeEach(async ({ page }) => {
   await mockAnalyticsApi(page);
 });
@@ -35,7 +44,23 @@ test('reviews and runs a question on mobile without layout overflow', async ({ p
 
   await page.getByRole('button', { name: 'Run analysis' }).click();
   await expect(page.getByRole('heading', { name: 'Revenue and margin by channel' })).toBeVisible();
+
+  await expect(page.getByRole('img', { name: /Bar chart for Revenue and margin/ })).toBeVisible();
+  const unavailableLine = page.getByRole('button', { name: 'Line chart' });
+  await expect(unavailableLine).toHaveAttribute('aria-disabled', 'true');
+  await unavailableLine.focus();
+  await expect(unavailableLine).toBeFocused();
+  const marginSeries = page.getByRole('button', { name: 'Gross margin series' });
+  await marginSeries.click();
+  await expect(marginSeries).toHaveAttribute('aria-pressed', 'false');
+
+  await page.getByRole('button', { name: 'Donut chart' }).click();
+  await expect(page.getByRole('img', { name: /Donut chart of Revenue/ })).toBeVisible();
+  await expect(page.getByLabel('Donut metric')).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Data table' }).click();
   await expect(page.getByRole('cell', { name: '$42,800.00' })).toBeVisible();
+  await expect(page.getByRole('region', { name: /Exact values/ })).toHaveAttribute('tabindex', '0');
 
   const primaryNav = page.getByRole('navigation', { name: 'Primary' }).last();
   await expect(primaryNav.getByRole('link', { name: 'Ask TillTally' })).toBeVisible();
@@ -45,6 +70,32 @@ test('reviews and runs a question on mobile without layout overflow', async ({ p
   expect(targetHeights.every((height) => height >= 44)).toBe(true);
   await expectNoHorizontalOverflow(page);
   await page.screenshot({ path: 'test-results/analytics-mobile.png', fullPage: true });
+});
+
+test('switches a temporal report between line, bar, and exact values', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/analytics');
+
+  await page.getByLabel('Business analytics question').fill('Show daily revenue this month');
+  await page.getByRole('button', { name: 'Review question' }).click();
+  await expect(page.getByLabel('Group by')).toHaveValue('day');
+  await page.getByRole('button', { name: 'Run analysis' }).click();
+
+  await expect(
+    page.getByRole('img', { name: /Line chart for Revenue and gross profit by day/ }),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Donut chart' })).toHaveAttribute(
+    'aria-disabled',
+    'true',
+  );
+  await page.getByRole('button', { name: 'Bar chart' }).click();
+  await expect(
+    page.getByRole('img', { name: /Bar chart for Revenue and gross profit by day/ }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Data table' }).click();
+  await expect(page.getByRole('cell', { name: '$12,400.00' })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+  await page.screenshot({ path: 'test-results/analytics-result-desktop.png', fullPage: true });
 });
 
 test('supports clarification, provider retry, cancellation, and business isolation', async ({
@@ -147,17 +198,21 @@ async function mockAnalyticsApi(page: Page) {
         return;
       }
 
-      await route.fulfill({ json: createReadyPlanningResult() });
+      await route.fulfill({
+        json: createReadyPlanningResult(/daily/i.test(body.question) ? dailyPlan : readyPlan),
+      });
       return;
     }
 
     if (path === '/api/analytics/preview') {
-      await route.fulfill({ json: createPreview() });
+      const plan = route.request().postDataJSON() as typeof readyPlan;
+      await route.fulfill({ json: createPreview(plan) });
       return;
     }
 
     if (path === '/api/analytics/execute') {
-      await route.fulfill({ json: createExecutionResult() });
+      const plan = route.request().postDataJSON() as typeof readyPlan;
+      await route.fulfill({ json: createExecutionResult(plan) });
       return;
     }
 
@@ -169,51 +224,76 @@ function createBusiness(id: string, name: string) {
   return { id, name, industry: 'Retail', city: 'Auckland', role: 'OWNER' };
 }
 
-function createReadyPlanningResult() {
+function createReadyPlanningResult(plan = readyPlan) {
   return {
     status: 'ready',
     source: 'provider',
-    message: 'Revenue and gross margin grouped by channel for the selected period.',
-    plan: readyPlan,
+    message: `A bounded ${plan.chart.type} report for the selected period.`,
+    plan,
   };
 }
 
-function createPreview() {
+function createPreview(plan = readyPlan) {
+  const isDaily = plan.dimensions.includes('day');
   return {
-    plan: readyPlan,
-    title: 'Revenue and margin by channel',
+    plan,
+    title: isDaily ? 'Revenue and gross profit by day' : 'Revenue and margin by channel',
     datasets: ['orders'],
     table: {
-      columns: [
-        { key: 'channel', label: 'Channel', kind: 'dimension', unit: null },
-        { key: 'revenue', label: 'Revenue', kind: 'metric', unit: 'NZD' },
-        { key: 'grossMarginPct', label: 'Gross margin', kind: 'metric', unit: 'percent' },
-      ],
+      columns: isDaily
+        ? [
+            { key: 'day', label: 'Day', kind: 'dimension', unit: null },
+            { key: 'revenue', label: 'Revenue', kind: 'metric', unit: 'NZD' },
+            { key: 'grossProfit', label: 'Gross profit', kind: 'metric', unit: 'NZD' },
+          ]
+        : [
+            { key: 'channel', label: 'Channel', kind: 'dimension', unit: null },
+            { key: 'revenue', label: 'Revenue', kind: 'metric', unit: 'NZD' },
+            { key: 'grossMarginPct', label: 'Gross margin', kind: 'metric', unit: 'percent' },
+          ],
     },
-    chart: { type: 'bar', categoryKey: 'channel' },
+    chart: { type: plan.chart.type, categoryKey: isDaily ? 'day' : 'channel' },
   };
 }
 
-function createExecutionResult() {
-  return {
-    ...createPreview(),
-    table: {
-      ...createPreview().table,
-      rows: [
+function createExecutionResult(plan = readyPlan) {
+  const preview = createPreview(plan);
+  const isDaily = plan.dimensions.includes('day');
+  const rows = isDaily
+    ? [
+        { day: '2026-07-01', revenue: 12_400, grossProfit: 5_100 },
+        { day: '2026-07-02', revenue: 13_800, grossProfit: 5_700 },
+        { day: '2026-07-03', revenue: 11_900, grossProfit: 4_800 },
+        { day: '2026-07-04', revenue: 15_200, grossProfit: 6_400 },
+      ]
+    : [
         { channel: 'Shopify', revenue: 42_800, grossMarginPct: 44.2 },
         { channel: 'In store', revenue: 24_100, grossMarginPct: 39.8 },
-      ],
+      ];
+  const metricColumns = preview.table.columns.filter(({ kind }) => kind === 'metric');
+  const dimensionKey = isDaily ? 'day' : 'channel';
+
+  return {
+    ...preview,
+    table: {
+      ...preview.table,
+      rows,
     },
     chart: {
-      ...createPreview().chart,
-      series: [
-        { key: 'revenue', label: 'Revenue', unit: 'NZD' },
-        { key: 'grossMarginPct', label: 'Gross margin', unit: 'percent' },
-      ],
+      ...preview.chart,
+      series: metricColumns.map((column) => ({
+        key: column.key,
+        label: column.label,
+        unit: column.unit,
+        data: rows.map((row) => ({
+          category: String(row[dimensionKey as keyof typeof row]),
+          value: Number(row[column.key as keyof typeof row]),
+        })),
+      })),
     },
     meta: {
-      rowCount: 2,
-      totalRows: 2,
+      rowCount: rows.length,
+      totalRows: rows.length,
       truncated: false,
       durationMs: 18,
       executedAt: '2026-07-19T12:00:00.000Z',

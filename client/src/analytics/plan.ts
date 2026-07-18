@@ -142,6 +142,18 @@ export function getDimensionLabel(dimension: AnalyticsDimensionId): string {
   return ANALYTICS_DIMENSION_OPTIONS.find(({ value }) => value === dimension)?.label ?? dimension;
 }
 
+export function getAnalyticsFieldLabel(field: AnalyticsMetricId | AnalyticsDimensionId): string {
+  return (
+    ANALYTICS_METRIC_OPTIONS.find(({ value }) => value === field)?.label ??
+    ANALYTICS_DIMENSION_OPTIONS.find(({ value }) => value === field)?.label ??
+    field
+  );
+}
+
+export function isTemporalDimension(dimension: AnalyticsDimensionId): boolean {
+  return TEMPORAL_DIMENSIONS.has(dimension);
+}
+
 function validateDateRange(plan: AnalyticsPlan, errors: string[]): void {
   const from = parseDateOnly(plan.dateRange.from);
   const to = parseDateOnly(plan.dateRange.to);
@@ -174,7 +186,7 @@ function validateChart(plan: AnalyticsPlan, errors: string[]): void {
 
   if (
     plan.chart.type === 'line' &&
-    (plan.dimensions.length !== 1 || dimension === undefined || !TEMPORAL_DIMENSIONS.has(dimension))
+    (plan.dimensions.length !== 1 || dimension === undefined || !isTemporalDimension(dimension))
   ) {
     errors.push('Line charts require one time grouping.');
   }
@@ -185,7 +197,7 @@ function validateChart(plan: AnalyticsPlan, errors: string[]): void {
 
   if (
     plan.chart.type === 'donut' &&
-    (plan.dimensions.length !== 1 || dimension === undefined || TEMPORAL_DIMENSIONS.has(dimension))
+    (plan.dimensions.length !== 1 || dimension === undefined || isTemporalDimension(dimension))
   ) {
     errors.push('Donut charts require one category grouping.');
   }

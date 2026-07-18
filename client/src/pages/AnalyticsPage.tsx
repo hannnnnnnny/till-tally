@@ -1,5 +1,14 @@
 import { RotateCcw, Send, Square } from 'lucide-react';
-import { type FormEvent, type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  lazy,
+  Suspense,
+  type FormEvent,
+  type KeyboardEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   executeAnalyticsPlan,
   planAnalyticsQuestion,
@@ -35,6 +44,12 @@ const EXAMPLE_PROMPTS = [
   'Compare gross margin by category',
   'Show low-stock products by status',
 ];
+
+const AnalyticsResultPanel = lazy(() =>
+  import('../analytics/AnalyticsResultPanel').then(({ AnalyticsResultPanel: Panel }) => ({
+    default: Panel,
+  })),
+);
 
 export function AnalyticsPage() {
   const {
@@ -422,7 +437,20 @@ export function AnalyticsPage() {
               </InlineNotice>
             )}
 
-            {status === 'complete' && result && <AnalysisResult result={result} />}
+            {status === 'complete' && result && (
+              <Suspense
+                fallback={
+                  <StatePanel
+                    className="mt-4"
+                    minHeight="sm"
+                    title="Preparing visualizations"
+                    message="Building the interactive chart and exact-value table."
+                  />
+                }
+              >
+                <AnalyticsResultPanel key={result.meta.executedAt} result={result} />
+              </Suspense>
+            )}
           </section>
         </div>
       )}
@@ -487,59 +515,6 @@ function GuidanceState({
   );
 }
 
-function AnalysisResult({ result }: { result: AnalyticsExecutionResult }) {
-  return (
-    <section className="mt-4 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-      <div className="flex flex-col gap-2 border-b border-slate-200 px-4 py-4 sm:flex-row sm:items-end sm:justify-between sm:px-5">
-        <div>
-          <p className="text-xs font-semibold uppercase text-emerald-700">Analysis complete</p>
-          <h3 className="mt-1 text-lg font-bold text-slate-950">{result.title}</h3>
-        </div>
-        <p className="text-xs font-medium text-slate-500">
-          {result.meta.rowCount} rows · {result.meta.durationMs} ms
-        </p>
-      </div>
-
-      {result.table.rows.length === 0 ? (
-        <StatePanel
-          minHeight="sm"
-          className="m-4 sm:m-5"
-          title="No matching data"
-          message="Try a wider date range or remove a filter from the reviewed plan."
-        />
-      ) : (
-        <div className="max-w-full overflow-x-auto">
-          <table className="w-full min-w-[560px] border-collapse text-left text-sm">
-            <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-500">
-              <tr>
-                {result.table.columns.map((column) => (
-                  <th key={column.key} scope="col" className="whitespace-nowrap px-4 py-3 sm:px-5">
-                    {column.label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {result.table.rows.map((row, rowIndex) => (
-                <tr key={rowIndex} className="text-slate-700">
-                  {result.table.columns.map((column) => (
-                    <td
-                      key={column.key}
-                      className="whitespace-nowrap px-4 py-3 tabular-nums sm:px-5"
-                    >
-                      {formatResultValue(row[column.key], column.unit)}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </section>
-  );
-}
-
 function validatePrompt(question: string): string | null {
   if (question.length < 3) {
     return 'Enter a question with at least 3 characters.';
@@ -558,28 +533,4 @@ function getRequestError(error: unknown, fallback: string): string {
 
 function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === 'AbortError';
-}
-
-function formatResultValue(value: string | number | null | undefined, unit: string | null): string {
-  if (value === null || value === undefined) {
-    return '—';
-  }
-
-  if (typeof value !== 'number') {
-    return value;
-  }
-
-  if (unit === 'NZD') {
-    return new Intl.NumberFormat('en-NZ', {
-      style: 'currency',
-      currency: 'NZD',
-      maximumFractionDigits: 2,
-    }).format(value);
-  }
-
-  if (unit === 'percent') {
-    return `${value.toFixed(1)}%`;
-  }
-
-  return new Intl.NumberFormat('en-NZ', { maximumFractionDigits: 2 }).format(value);
 }

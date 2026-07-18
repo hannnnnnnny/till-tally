@@ -84,7 +84,12 @@ export type AnalyticsExecutionResult = Omit<AnalyticsPlanPreview, 'table' | 'cha
     rows: Array<Record<string, string | number | null>>;
   };
   chart: AnalyticsPlanPreview['chart'] & {
-    series: Array<{ key: AnalyticsMetricId; label: string; unit: string }>;
+    series: Array<{
+      key: AnalyticsMetricId;
+      label: string;
+      unit: string;
+      data: Array<{ category: string; value: number }>;
+    }>;
   };
   meta: {
     rowCount: number;
