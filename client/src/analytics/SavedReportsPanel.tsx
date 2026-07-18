@@ -290,7 +290,7 @@ export function SavedReportNameDialog({
             type="button"
             onClick={onSubmit}
             disabled={busy || !value.trim()}
-            className="min-h-11 rounded-md bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+            className="min-h-11 rounded-md bg-blue-700 px-4 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-50"
           >
             {busy ? 'Saving...' : submitLabel}
           </button>

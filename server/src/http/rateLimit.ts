@@ -47,3 +47,17 @@ export const reportRateLimit = createRateLimiter({
   message: 'Too many report requests. Please try again later.',
   windowMs: FIVE_MINUTES_MS,
 });
+
+export const analyticsPlanRateLimit = createRateLimiter({
+  code: 'ANALYTICS_PLAN_RATE_LIMITED',
+  max: 30,
+  message: 'Too many analytics planning requests. Please try again later.',
+  windowMs: FIVE_MINUTES_MS,
+});
+
+export const analyticsExecutionRateLimit = createRateLimiter({
+  code: 'ANALYTICS_EXECUTION_RATE_LIMITED',
+  max: 60,
+  message: 'Too many analytics execution requests. Please try again later.',
+  windowMs: FIVE_MINUTES_MS,
+});

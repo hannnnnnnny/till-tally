@@ -1,6 +1,8 @@
 import { requireAuth } from '../auth/middleware';
 import { requireBusinessAccess } from '../businesses/middleware';
 import { env } from '../config/env';
+import { analyticsExecutionRateLimit, analyticsPlanRateLimit } from '../http/rateLimit';
+import { analyticsAudit } from './analyticsAudit';
 import { createAnalyticsPlanner } from './analyticsPlanner';
 import { createAnalyticsRouter } from './analyticsRouterFactory';
 import { executeAnalyticsPlan, previewAnalyticsPlan } from './analyticsExecutor';
@@ -26,6 +28,9 @@ const analyticsPlanner = createAnalyticsPlanner({
 export const analyticsRouter = createAnalyticsRouter({
   requireAuth,
   requireBusinessAccess,
+  planRateLimit: analyticsPlanRateLimit,
+  executeRateLimit: analyticsExecutionRateLimit,
+  audit: analyticsAudit,
   planAnalytics: (input, options) => analyticsPlanner.plan(input, options),
   previewAnalyticsPlan,
   executeAnalyticsPlan: (businessId, input) =>

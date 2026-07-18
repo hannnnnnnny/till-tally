@@ -1,4 +1,5 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
 
 const readyPlan = {
   schemaVersion: 1,
@@ -33,6 +34,7 @@ test('reviews and runs a question on mobile without layout overflow', async ({ p
   await page.goto('/analytics');
 
   await expect(page.getByRole('heading', { level: 1, name: 'Ask TillTally' })).toBeVisible();
+  await expectAccessible(page, 'prompt');
   const question = page.getByLabel('Business analytics question');
   await question.fill('Compare revenue and gross margin by channel this month');
   await page.getByRole('button', { name: 'Review question' }).click();
@@ -41,9 +43,11 @@ test('reviews and runs a question on mobile without layout overflow', async ({ p
   await expect(page.getByText('AI-assisted draft')).toBeVisible();
   await expect(page.getByLabel('Metric 1')).toHaveValue('revenue');
   await expect(page.getByLabel('Group by')).toHaveValue('channel');
+  await expectAccessible(page, 'review');
 
   await page.getByRole('button', { name: 'Run analysis' }).click();
   await expect(page.getByRole('heading', { name: 'Revenue and margin by channel' })).toBeVisible();
+  await expectAccessible(page, 'chart result');
 
   await expect(page.getByRole('img', { name: /Bar chart for Revenue and margin/ })).toBeVisible();
   const unavailableLine = page.getByRole('button', { name: 'Line chart' });
@@ -61,6 +65,7 @@ test('reviews and runs a question on mobile without layout overflow', async ({ p
   await page.getByRole('button', { name: 'Data table' }).click();
   await expect(page.getByRole('cell', { name: '$42,800.00' })).toBeVisible();
   await expect(page.getByRole('region', { name: /Exact values/ })).toHaveAttribute('tabindex', '0');
+  await expectAccessible(page, 'table result');
 
   const primaryNav = page.getByRole('navigation', { name: 'Primary' }).last();
   await expect(primaryNav.getByRole('link', { name: 'Ask TillTally' })).toBeVisible();
@@ -149,6 +154,7 @@ test('saves, refines, versions, manages, and exports a report on mobile', async 
 
   await page.getByRole('button', { name: 'Save report' }).click();
   await expect(page.getByRole('dialog', { name: 'Save this report' })).toBeVisible();
+  await expectAccessible(page, 'save report dialog');
   await page.getByLabel('Report name').fill('Daily revenue pulse');
   await page.getByRole('dialog').getByRole('button', { name: 'Save report' }).click();
   await expect(page.getByText(/Saved "Daily revenue pulse" as version 1/)).toBeVisible();
@@ -156,6 +162,7 @@ test('saves, refines, versions, manages, and exports a report on mobile', async 
   await page.getByRole('button', { name: /Saved reports/ }).click();
   const originalReport = page.getByRole('article').filter({ hasText: 'Daily revenue pulse' });
   await expect(originalReport.getByText('Current')).toBeVisible();
+  await expectAccessible(page, 'saved report library');
   await originalReport.getByRole('button', { name: 'Rename' }).click();
   await page.getByLabel('Report name').fill('Revenue pulse');
   await page.getByRole('dialog').getByRole('button', { name: 'Rename report' }).click();
@@ -496,4 +503,21 @@ async function expectNoHorizontalOverflow(page: Page) {
     scroll: document.documentElement.scrollWidth,
   }));
   expect(width.scroll).toBeLessThanOrEqual(width.client);
+}
+
+async function expectAccessible(page: Page, state: string): Promise<void> {
+  const result = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+    .analyze();
+  const blockingViolations = result.violations.filter(
+    ({ impact }) => impact === 'serious' || impact === 'critical',
+  );
+  const diagnostics = blockingViolations
+    .map(
+      ({ id, help, nodes }) =>
+        `${id}: ${help}; targets: ${nodes.map(({ target }) => target.join(' ')).join(', ')}`,
+    )
+    .join('\n');
+
+  expect(blockingViolations, `${state} accessibility violations\n${diagnostics}`).toEqual([]);
 }

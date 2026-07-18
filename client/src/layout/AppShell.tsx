@@ -165,7 +165,7 @@ export function AppShell() {
             <div className="flex min-w-0 items-center gap-3">
               <img src="/favicon.svg" alt="" className="h-9 w-9 rounded-lg lg:hidden" />
               <div className="min-w-0">
-                <div className="flex min-w-0 items-center gap-2 text-xs font-medium text-slate-500">
+                <div className="flex min-w-0 items-center gap-2 text-xs font-medium text-slate-600">
                   <Building2
                     aria-hidden="true"
                     className="h-3.5 w-3.5 shrink-0"

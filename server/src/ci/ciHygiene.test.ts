@@ -12,12 +12,39 @@ describe('CI hygiene', () => {
       'npm run prisma:validate -w server',
       'npm run lint',
       'npm run typecheck',
+      'npm run test:analytics-evals -w server',
       'npm test --workspaces --if-present',
       'npm run test:e2e',
       'npm run build',
     ]) {
       assert.match(workflow, new RegExp(escapeRegExp(command)));
     }
+  });
+
+  it('keeps deterministic analytics evaluations in the merge gate', () => {
+    const workflow = readWorkspaceFile('.github/workflows/ci.yml');
+    const serverPackageJson = JSON.parse(readWorkspaceFile('server/package.json')) as PackageJson;
+
+    assert.match(workflow, /- name: Analytics evaluation/);
+    assert.equal(
+      serverPackageJson.scripts['test:analytics-evals'],
+      'tsx src/analytics/analyticsEvaluationCli.ts',
+    );
+  });
+
+  it('excludes tests and fixtures from the production server bundle', () => {
+    const serverPackageJson = JSON.parse(readWorkspaceFile('server/package.json')) as PackageJson;
+    const buildConfig = JSON.parse(readWorkspaceFile('server/tsconfig.build.json')) as {
+      exclude: string[];
+    };
+
+    assert.match(serverPackageJson.scripts.build, /tsc -p tsconfig\.build\.json/);
+    assert.match(serverPackageJson.scripts.build, /npm run clean/);
+    assert.deepEqual(buildConfig.exclude, [
+      'src/**/*.test.ts',
+      'src/analytics/analyticsEvaluation.ts',
+      'src/analytics/analyticsEvaluationCli.ts',
+    ]);
   });
 
   it('runs viewport regression tests with an installed Playwright browser', () => {

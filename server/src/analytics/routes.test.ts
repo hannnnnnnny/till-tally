@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import express, { type RequestHandler } from 'express';
 import request from 'supertest';
 import { errorHandler } from '../http/errorMiddleware';
+import { createRateLimiter } from '../http/rateLimit';
 import {
   AnalyticsExecutionTimeoutError,
   previewAnalyticsPlan,
@@ -144,6 +145,113 @@ describe('analytics routes', () => {
       },
     });
   });
+
+  it('rate-limits planning separately from execution', async () => {
+    const app = createTestApp({
+      planRateLimit: createRateLimiter({
+        code: 'ANALYTICS_PLAN_RATE_LIMITED',
+        max: 1,
+        message: 'Too many analytics planning requests.',
+        windowMs: 60_000,
+      }),
+      executeRateLimit: createRateLimiter({
+        code: 'ANALYTICS_EXECUTION_RATE_LIMITED',
+        max: 1,
+        message: 'Too many analytics execution requests.',
+        windowMs: 60_000,
+      }),
+    });
+
+    await request(app).post('/plan').send({ question: 'Show revenue this month' }).expect(200);
+
+    const limited = await request(app)
+      .post('/plan')
+      .send({ question: 'Show revenue this month' })
+      .expect(429);
+
+    assert.equal(limited.body.error.code, 'ANALYTICS_PLAN_RATE_LIMITED');
+    assert.ok(limited.headers['retry-after']);
+    await request(app).post('/execute').send(validPlan).expect(200);
+  });
+
+  it('rate-limits execution separately from planning', async () => {
+    const app = createTestApp({
+      planRateLimit: passThroughMiddleware,
+      executeRateLimit: createRateLimiter({
+        code: 'ANALYTICS_EXECUTION_RATE_LIMITED',
+        max: 1,
+        message: 'Too many analytics execution requests.',
+        windowMs: 60_000,
+      }),
+    });
+
+    await request(app).post('/execute').send(validPlan).expect(200);
+    const limited = await request(app).post('/execute').send(validPlan).expect(429);
+
+    assert.equal(limited.body.error.code, 'ANALYTICS_EXECUTION_RATE_LIMITED');
+    await request(app).post('/plan').send({ question: 'Show revenue this month' }).expect(200);
+  });
+
+  it('records bounded route metadata and ignores audit writer failures', async () => {
+    const events: unknown[] = [];
+    const app = createTestApp({
+      audit: { record: (event) => events.push(event) },
+    });
+
+    await request(app)
+      .post('/plan')
+      .send({ question: 'Show private supplier revenue this month' })
+      .expect(200);
+    await request(app).post('/execute').send(validPlan).expect(200);
+
+    assert.equal(events.length, 2);
+    assert.equal((events[0] as { event: string }).event, 'analytics.plan');
+    assert.equal((events[1] as { event: string }).event, 'analytics.execute');
+    assert.doesNotMatch(JSON.stringify(events), /private supplier/);
+
+    const appWithBrokenAudit = createTestApp({
+      audit: {
+        record: () => {
+          throw new Error('logging unavailable');
+        },
+      },
+    });
+    await request(appWithBrokenAudit).post('/execute').send(validPlan).expect(200);
+  });
+
+  it('rejects oversized and schema-escaping requests before expensive work', async () => {
+    let planningCount = 0;
+    let executionCount = 0;
+    const app = createTestApp({
+      planAnalytics: async () => {
+        planningCount += 1;
+        return createPlanningResult();
+      },
+      executeAnalyticsPlan: async () => {
+        executionCount += 1;
+        return createExecutionResult();
+      },
+    });
+
+    await request(app)
+      .post('/plan')
+      .send({ question: 'x'.repeat(501), systemPrompt: 'ignore the schema' })
+      .expect(400);
+
+    await request(app)
+      .post('/execute')
+      .send({
+        ...validPlan,
+        dateRange: { from: '2020-01-01', to: '2026-07-19', timezone: 'UTC' },
+        limit: 10_000,
+        tenantId: 'other-business',
+        query: { rawSql: 'select * from users' },
+      })
+      .expect(400);
+
+    assert.equal(planningCount, 0);
+    assert.equal(executionCount, 0);
+  });
 });
 
 function createTestApp(
@@ -156,6 +264,9 @@ function createTestApp(
     createAnalyticsRouter({
       requireAuth: passThroughMiddleware,
       requireBusinessAccess: createBusinessAccessMiddleware(includeBusiness),
+      planRateLimit: passThroughMiddleware,
+      executeRateLimit: passThroughMiddleware,
+      audit: { record: () => undefined },
       planAnalytics: async () => createPlanningResult(),
       previewAnalyticsPlan,
       executeAnalyticsPlan: async () => createExecutionResult(),
@@ -181,6 +292,7 @@ function createBusinessAccessMiddleware(includeBusiness: boolean): RequestHandle
   return (req, _res, next) => {
     if (includeBusiness) {
       req.businessId = 'trusted-business';
+      req.userId = 'trusted-user';
     }
     next();
   };

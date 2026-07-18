@@ -132,6 +132,34 @@ describe('analytics planner', () => {
     assert.equal(result.source, 'local');
   });
 
+  it('rejects tenant selection, unsupported fields, and unbounded provider plans', async () => {
+    const adversarialPlans = [
+      { ...providerPlan.plan, businessId: 'other-tenant' },
+      { ...providerPlan.plan, metrics: ['customerEmail'] },
+      {
+        ...providerPlan.plan,
+        dateRange: {
+          from: '2020-01-01',
+          to: '2026-07-19',
+          timezone: 'Pacific/Auckland',
+        },
+      },
+      { ...providerPlan.plan, limit: 10_000 },
+    ];
+
+    for (const plan of adversarialPlans) {
+      const planner = createAnalyticsPlanner({
+        provider: createProvider(async () => JSON.stringify({ ...providerPlan, plan })),
+        now: fixedNow,
+        maxRetries: 0,
+      });
+
+      const result = await planner.plan({ question: 'Build a useful report for this period' });
+      assert.equal(result.status, 'clarification');
+      assert.equal(result.source, 'local');
+    }
+  });
+
   it('aborts a stalled provider and falls back without throwing', async () => {
     let observedAbort = false;
     const provider = createProvider(
