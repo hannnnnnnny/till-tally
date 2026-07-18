@@ -229,9 +229,28 @@ Per-channel aggregation (channel analysis, [`TT.md`](../TT.md) §10.7).
 
 ## 5A. Analytics Builder
 
-Analytics builder endpoints accept only the strict, versioned `AnalyticsPlan` contract from
-`@till-tally/analytics-contracts`. Both routes require a bearer access token and a verified
+Analytics builder endpoints use the strict, versioned contracts from
+`@till-tally/analytics-contracts`. All routes require a bearer access token and a verified
 `X-Business-Id` membership. Business scope is always taken from middleware, never from the body.
+
+### `POST /api/analytics/plan`
+
+Translates a bounded natural-language question into a validated analytics plan. The deterministic
+local planner handles common retail questions without a model. An optional server-side provider can
+handle additional phrasing, but its output must pass the same strict schema before it is returned.
+
+```json
+{
+  "question": "Show daily revenue this month",
+  "timezone": "Pacific/Auckland"
+}
+```
+
+A successful translation returns `status: "ready"`, a plan, and `source: "local"` or
+`"provider"`. Ambiguous and unsupported requests return guided `clarification` or `unsupported`
+results with examples instead of inventing fields. Invalid input returns
+`400 INVALID_ANALYTICS_REQUEST`. Provider failures and timeouts safely fall back and never reach the
+analytics executor.
 
 ### `POST /api/analytics/preview`
 

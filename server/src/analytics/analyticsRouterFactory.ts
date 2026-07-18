@@ -1,5 +1,9 @@
 import { type RequestHandler, type Response, Router } from 'express';
-import { parseAnalyticsPlan } from '@till-tally/analytics-contracts';
+import {
+  parseAnalyticsPlan,
+  parseAnalyticsPlannerRequest,
+  type AnalyticsPlanningResult,
+} from '@till-tally/analytics-contracts';
 import { ZodError } from 'zod';
 import { asyncHandler } from '../http/asyncHandler';
 import {
@@ -12,12 +16,46 @@ import {
 export type AnalyticsRouterDependencies = {
   requireAuth: RequestHandler;
   requireBusinessAccess: RequestHandler;
+  planAnalytics: (
+    input: unknown,
+    options?: { signal?: AbortSignal },
+  ) => Promise<AnalyticsPlanningResult>;
   previewAnalyticsPlan: (input: unknown) => AnalyticsPlanPreview;
   executeAnalyticsPlan: (businessId: string, input: unknown) => Promise<AnalyticsExecutionResult>;
 };
 
 export function createAnalyticsRouter(dependencies: AnalyticsRouterDependencies): Router {
   const router = Router();
+
+  router.post(
+    '/plan',
+    dependencies.requireAuth,
+    dependencies.requireBusinessAccess,
+    asyncHandler(async (req, res) => {
+      if (!assertBusinessContext(req.businessId, res)) return;
+
+      let request;
+      try {
+        request = parseAnalyticsPlannerRequest(req.body);
+      } catch (error) {
+        if (error instanceof ZodError) {
+          sendInvalidPlannerRequest(error, res);
+          return;
+        }
+        throw error;
+      }
+
+      const controller = new AbortController();
+      const abortPlanning = () => controller.abort(new Error('Analytics planning request closed'));
+      req.once('aborted', abortPlanning);
+
+      try {
+        res.json(await dependencies.planAnalytics(request, { signal: controller.signal }));
+      } finally {
+        req.off('aborted', abortPlanning);
+      }
+    }),
+  );
 
   router.post(
     '/preview',
@@ -53,6 +91,20 @@ export function createAnalyticsRouter(dependencies: AnalyticsRouterDependencies)
   );
 
   return router;
+}
+
+function sendInvalidPlannerRequest(error: ZodError, res: Response): void {
+  res.status(400).json({
+    error: {
+      code: 'INVALID_ANALYTICS_REQUEST',
+      message: 'The analytics question is invalid.',
+      details: error.issues.map((issue) => ({
+        path: issue.path,
+        code: issue.code,
+        message: issue.message,
+      })),
+    },
+  });
 }
 
 function assertBusinessContext(

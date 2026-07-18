@@ -121,6 +121,18 @@ openssl rand -hex 32
 
 Secrets are read from environment variables and must not be committed.
 
+The natural-language analytics planner works locally without an AI service. To optionally use a
+local Ollama model for additional phrasing, run Ollama separately and set these server-only values:
+
+```bash
+ANALYTICS_PLANNER_PROVIDER=ollama
+OLLAMA_BASE_URL=http://127.0.0.1:11434
+OLLAMA_MODEL=qwen3:4b
+```
+
+Ollama is an enhancement, not a production dependency. Model configuration is never exposed to the
+React client, and provider output is schema-validated before it can become an analytics plan.
+
 ### Run the Database
 
 ```bash

@@ -86,6 +86,12 @@ openssl rand -hex 32
 
 Do not commit `.env.production`.
 
+Natural-language analytics uses the deterministic local planner by default, so production does not
+need an AI service. Ollama is optional. If a private Ollama instance is reachable from the server
+container, set `ANALYTICS_PLANNER_PROVIDER=ollama`, `OLLAMA_BASE_URL`, and `OLLAMA_MODEL` in
+`.env.production`. Keep that endpoint on a private network; never expose it through client-side
+environment variables or the public reverse proxy.
+
 ## 4. Build, Migrate, and Start Containers
 
 Start PostgreSQL first:
