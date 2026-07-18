@@ -11,11 +11,11 @@ export default defineConfig({
     command:
       'npm run build -w client && npm run preview -w client -- --host 127.0.0.1 --port 4173 --strictPort',
     env: {
-      VITE_BASE_PATH: '/till-tally/',
-      VITE_STATIC_PREVIEW: 'true',
+      VITE_BASE_PATH: '/',
+      VITE_STATIC_PREVIEW: 'false',
     },
     reuseExistingServer: false,
     timeout: 120_000,
-    url: 'http://127.0.0.1:4173/till-tally/',
+    url: 'http://127.0.0.1:4173/',
   },
 });

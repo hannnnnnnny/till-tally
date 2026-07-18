@@ -61,6 +61,24 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
   },
 ];
 
+const MOBILE_PRIMARY_ROUTE_IDS: AppRouteId[] = ['dashboard', 'imports', 'products', 'inventory'];
+
+const MOBILE_MORE_ROUTE_IDS: AppRouteId[] = ['channels', 'reports', 'workspace'];
+
+export const MOBILE_PRIMARY_NAV_ITEMS = MOBILE_PRIMARY_ROUTE_IDS.map(getNavItem);
+
+export const MOBILE_MORE_NAV_ITEMS = MOBILE_MORE_ROUTE_IDS.map(getNavItem);
+
 export function getRouteTitle(pathname: string): string {
   return APP_NAV_ITEMS.find((item) => pathname.startsWith(item.path))?.label ?? 'Dashboard';
+}
+
+function getNavItem(id: AppRouteId): AppNavItem {
+  const item = APP_NAV_ITEMS.find((candidate) => candidate.id === id);
+
+  if (!item) {
+    throw new Error(`Missing navigation item: ${id}`);
+  }
+
+  return item;
 }

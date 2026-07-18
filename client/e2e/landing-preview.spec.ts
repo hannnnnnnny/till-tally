@@ -11,7 +11,7 @@ for (const viewport of DESKTOP_VIEWPORTS) {
     page,
   }) => {
     await page.setViewportSize(viewport);
-    await page.goto('/till-tally/');
+    await page.goto('/');
 
     const preview = page.getByTestId('hero-dashboard-backdrop');
     const clippingArea = page.getByTestId('hero-dashboard-clip');
@@ -44,7 +44,7 @@ for (const viewport of DESKTOP_VIEWPORTS) {
 
 test('hides the decorative preview without mobile horizontal overflow', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
-  await page.goto('/till-tally/');
+  await page.goto('/');
 
   await expect(page.getByTestId('hero-dashboard-backdrop')).toBeHidden();
   await expectNoHorizontalOverflow(page);

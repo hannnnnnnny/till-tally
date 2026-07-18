@@ -4,6 +4,7 @@ import { buildProductPerformanceSearchParams } from './api';
 import {
   PRODUCT_STATUS_FILTERS,
   formatProductCurrency,
+  formatProductLastSoldAt,
   formatProductPercent,
   formatProductStock,
   getProductLabelClass,
@@ -48,6 +49,9 @@ describe('product performance table helpers', () => {
     assert.equal(formatProductPercent(57.73), '57.7%');
     assert.equal(formatProductStock(3), '3 in stock');
     assert.equal(formatProductStock(0), '0 in stock');
+    assert.equal(formatProductLastSoldAt('2026-06-24'), 'Last sold Jun 24');
+    assert.equal(formatProductLastSoldAt('2026-06-24T00:00:00.000Z'), 'Last sold Jun 24');
+    assert.equal(formatProductLastSoldAt('not-a-date'), 'Last sold date unavailable');
   });
 
   it('defines selectable status filters and label styling', () => {

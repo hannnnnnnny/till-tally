@@ -2,6 +2,7 @@ import {
   BarChart3,
   Building2,
   FileChartColumn,
+  Ellipsis,
   LayoutDashboard,
   LogOut,
   PackageSearch,
@@ -10,11 +11,17 @@ import {
   Warehouse,
   type LucideIcon,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { useBusinesses } from '../businesses/BusinessContext';
-import { APP_NAV_ITEMS, type AppRouteId, getRouteTitle } from '../navigation/routes';
+import {
+  APP_NAV_ITEMS,
+  MOBILE_MORE_NAV_ITEMS,
+  MOBILE_PRIMARY_NAV_ITEMS,
+  type AppRouteId,
+  getRouteTitle,
+} from '../navigation/routes';
 import { getActionClassName } from '../ui/layout';
 import { InlineNotice } from '../ui/StatePanel';
 
@@ -33,7 +40,50 @@ export function AppShell() {
   const { user, signOut } = useAuth();
   const { activeBusiness, businesses } = useBusinesses();
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
+  const moreButtonRef = useRef<HTMLButtonElement>(null);
   const pageTitle = getRouteTitle(location.pathname);
+  const isMoreRouteActive = MOBILE_MORE_NAV_ITEMS.some((item) =>
+    location.pathname.startsWith(item.path),
+  );
+
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!isMobileMenuOpen) {
+      return;
+    }
+
+    const firstLink = mobileMenuRef.current?.querySelector<HTMLAnchorElement>('a');
+    const focusFrame = window.requestAnimationFrame(() => firstLink?.focus());
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setIsMobileMenuOpen(false);
+        moreButtonRef.current?.focus();
+      }
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target as Node;
+
+      if (!mobileMenuRef.current?.contains(target) && !moreButtonRef.current?.contains(target)) {
+        setIsMobileMenuOpen(false);
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('pointerdown', handlePointerDown);
+
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('pointerdown', handlePointerDown);
+    };
+  }, [isMobileMenuOpen]);
 
   async function handleSignOut() {
     setIsSigningOut(true);
@@ -134,6 +184,7 @@ export function AppShell() {
               <BusinessSelector />
               <button
                 type="button"
+                aria-label={isSigningOut ? 'Signing out' : 'Sign out'}
                 onClick={handleSignOut}
                 disabled={isSigningOut}
                 className={getActionClassName('secondary', 'shrink-0')}
@@ -157,17 +208,58 @@ export function AppShell() {
 
         <main
           id="main-content"
-          className="mx-auto max-w-[1536px] px-3 py-5 pb-[calc(8rem+env(safe-area-inset-bottom))] min-[375px]:px-4 sm:px-6 sm:py-7 lg:px-8 lg:pb-8"
+          className="mx-auto max-w-[1536px] px-3 py-5 pb-[calc(6rem+env(safe-area-inset-bottom))] min-[375px]:px-4 sm:px-6 sm:py-7 lg:px-8 lg:pb-8"
         >
           <Outlet />
         </main>
       </div>
 
+      {isMobileMenuOpen && (
+        <div
+          ref={mobileMenuRef}
+          id="mobile-more-menu"
+          className="fixed inset-x-3 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-40 rounded-lg border border-slate-200 bg-white p-2 shadow-2xl shadow-slate-900/20 sm:left-auto sm:right-4 sm:w-80 lg:hidden"
+          aria-label="More destinations"
+        >
+          <div className="px-3 pb-2 pt-1">
+            <p className="text-xs font-semibold uppercase text-slate-500">More</p>
+            <p className="mt-0.5 text-sm text-slate-600">Analysis, reports, and workspace</p>
+          </div>
+          <nav className="space-y-1" aria-label="More destinations">
+            {MOBILE_MORE_NAV_ITEMS.map((item) => {
+              const Icon = NAV_ICONS[item.id];
+
+              return (
+                <NavLink
+                  key={item.id}
+                  to={item.path}
+                  className={({ isActive }) =>
+                    `flex min-h-12 items-center gap-3 rounded-md px-3 text-sm font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-inset ${
+                      isActive
+                        ? 'bg-slate-950 text-white'
+                        : 'text-slate-700 hover:bg-slate-100 hover:text-slate-950'
+                    }`
+                  }
+                >
+                  <Icon aria-hidden="true" className="h-5 w-5 shrink-0" strokeWidth={1.8} />
+                  <span className="min-w-0">
+                    <span className="block truncate">{item.label}</span>
+                    <span className="block truncate text-xs font-normal opacity-70">
+                      {item.description}
+                    </span>
+                  </span>
+                </NavLink>
+              );
+            })}
+          </nav>
+        </div>
+      )}
+
       <nav
-        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 gap-1 border-t border-slate-200 bg-white px-1.5 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(15,23,42,0.08)] min-[375px]:px-2 sm:grid-cols-7 lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 gap-1 border-t border-slate-200 bg-white px-1.5 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(15,23,42,0.08)] min-[375px]:px-2 lg:hidden"
         aria-label="Primary"
       >
-        {APP_NAV_ITEMS.map((item) => {
+        {MOBILE_PRIMARY_NAV_ITEMS.map((item) => {
           const Icon = NAV_ICONS[item.id];
 
           return (
@@ -175,16 +267,31 @@ export function AppShell() {
               key={item.id}
               to={item.path}
               className={({ isActive }) =>
-                `flex min-h-12 flex-col items-center justify-center gap-1 rounded-md px-1 text-center text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
+                `flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-md px-1 text-center text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
                   isActive ? 'bg-slate-950 text-white' : 'text-slate-600 hover:bg-slate-100'
                 }`
               }
             >
               <Icon aria-hidden="true" className="h-4 w-4" strokeWidth={1.8} />
-              <span className="truncate">{item.label}</span>
+              <span className="w-full truncate">{item.label}</span>
             </NavLink>
           );
         })}
+        <button
+          ref={moreButtonRef}
+          type="button"
+          aria-controls="mobile-more-menu"
+          aria-expanded={isMobileMenuOpen}
+          onClick={() => setIsMobileMenuOpen((isOpen) => !isOpen)}
+          className={`flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-md px-1 text-center text-[11px] font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-blue-600 ${
+            isMobileMenuOpen || isMoreRouteActive
+              ? 'bg-slate-950 text-white'
+              : 'text-slate-600 hover:bg-slate-100'
+          }`}
+        >
+          <Ellipsis aria-hidden="true" className="h-4 w-4" strokeWidth={2} />
+          <span>More</span>
+        </button>
       </nav>
     </div>
   );
@@ -222,7 +329,7 @@ function getBusinessContext(business: ReturnType<typeof useBusinesses>['activeBu
   }
 
   const details = [business.industry, business.city].filter(Boolean).join(' / ');
-  return details ? `${business.name} · ${details}` : business.name;
+  return details ? `${business.name} - ${details}` : business.name;
 }
 
 function getInitials(name: string | undefined): string {

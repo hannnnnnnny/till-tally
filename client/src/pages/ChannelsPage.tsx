@@ -172,7 +172,7 @@ export function ChannelsPage() {
       )}
 
       {activeBusinessHeaders && (
-        <Surface>
+        <Surface className="hidden md:block">
           <SectionHeader eyebrow="Details" title="Channel performance table" />
 
           <ChannelTableState
@@ -218,7 +218,7 @@ function ChannelLeaderboardRow({ row }: { row: ChannelTableRow }) {
         </p>
       </div>
 
-      <dl className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <dl className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
         <ChannelMiniMetric label="Orders" value={formatChannelNumber(row.orders)} />
         <ChannelMiniMetric label="AOV" value={formatChannelCurrency(row.averageOrderValue)} />
         <ChannelMiniMetric label="Margin" value={formatChannelPercent(row.grossMarginPct)} />
