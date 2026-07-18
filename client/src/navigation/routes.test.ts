@@ -17,6 +17,7 @@ describe('app navigation routes', () => {
       })),
       [
         { path: '/dashboard', label: 'Dashboard' },
+        { path: '/analytics', label: 'Ask TillTally' },
         { path: '/channels', label: 'Channels' },
         { path: '/imports', label: 'Imports' },
         { path: '/products', label: 'Products' },
@@ -34,19 +35,20 @@ describe('app navigation routes', () => {
   it('keeps the mobile tab bar focused on four core workflows', () => {
     assert.deepEqual(
       MOBILE_PRIMARY_NAV_ITEMS.map((item) => item.id),
-      ['dashboard', 'imports', 'products', 'inventory'],
+      ['dashboard', 'analytics', 'products', 'inventory'],
     );
   });
 
   it('moves secondary mobile destinations into the More menu', () => {
     assert.deepEqual(
       MOBILE_MORE_NAV_ITEMS.map((item) => item.id),
-      ['channels', 'reports', 'workspace'],
+      ['imports', 'channels', 'reports', 'workspace'],
     );
   });
 
   it('resolves page titles from route paths', () => {
     assert.equal(getRouteTitle('/dashboard'), 'Dashboard');
+    assert.equal(getRouteTitle('/analytics'), 'Ask TillTally');
     assert.equal(getRouteTitle('/channels'), 'Channels');
     assert.equal(getRouteTitle('/imports'), 'Imports');
     assert.equal(getRouteTitle('/reports/weekly'), 'Reports');

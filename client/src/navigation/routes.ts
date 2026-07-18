@@ -1,5 +1,6 @@
 export type AppRouteId =
   | 'dashboard'
+  | 'analytics'
   | 'channels'
   | 'imports'
   | 'products'
@@ -22,6 +23,12 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
     label: 'Dashboard',
     path: '/dashboard',
     description: 'Business overview',
+  },
+  {
+    id: 'analytics',
+    label: 'Ask TillTally',
+    path: '/analytics',
+    description: 'Guided business questions',
   },
   {
     id: 'channels',
@@ -61,9 +68,9 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
   },
 ];
 
-const MOBILE_PRIMARY_ROUTE_IDS: AppRouteId[] = ['dashboard', 'imports', 'products', 'inventory'];
+const MOBILE_PRIMARY_ROUTE_IDS: AppRouteId[] = ['dashboard', 'analytics', 'products', 'inventory'];
 
-const MOBILE_MORE_ROUTE_IDS: AppRouteId[] = ['channels', 'reports', 'workspace'];
+const MOBILE_MORE_ROUTE_IDS: AppRouteId[] = ['imports', 'channels', 'reports', 'workspace'];
 
 export const MOBILE_PRIMARY_NAV_ITEMS = MOBILE_PRIMARY_ROUTE_IDS.map(getNavItem);
 

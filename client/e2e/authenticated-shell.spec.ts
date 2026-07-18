@@ -22,7 +22,7 @@ test('keeps core navigation and product data usable at 375px', async ({ page }) 
 
   const primaryNav = page.getByRole('navigation', { name: 'Primary' }).last();
   await expect(primaryNav.getByRole('link', { name: 'Dashboard' })).toBeVisible();
-  await expect(primaryNav.getByRole('link', { name: 'Imports' })).toBeVisible();
+  await expect(primaryNav.getByRole('link', { name: 'Ask TillTally' })).toBeVisible();
   await expect(primaryNav.getByRole('link', { name: 'Products' })).toBeVisible();
   await expect(primaryNav.getByRole('link', { name: 'Inventory' })).toBeVisible();
 
@@ -31,7 +31,8 @@ test('keeps core navigation and product data usable at 375px', async ({ page }) 
 
   const moreNav = page.getByRole('navigation', { name: 'More destinations' });
   await expect(moreNav).toBeVisible();
-  await expect(moreNav.getByRole('link', { name: /Channels/ })).toBeFocused();
+  await expect(moreNav.getByRole('link', { name: /Imports/ })).toBeFocused();
+  await expect(moreNav.getByRole('link', { name: /Channels/ })).toBeVisible();
   await expect(moreNav.getByRole('link', { name: /Reports/ })).toBeVisible();
   await expect(moreNav.getByRole('link', { name: /Workspace/ })).toBeVisible();
 
