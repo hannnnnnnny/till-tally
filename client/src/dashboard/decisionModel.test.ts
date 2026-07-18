@@ -65,10 +65,10 @@ describe('dashboard decision model', () => {
     });
   });
 
-  it('uses the browser calendar date instead of shifting eastern time zones to UTC', () => {
-    const aucklandMidnight = new Date('2026-07-19T00:30:00+12:00');
+  it('uses the browser calendar date instead of shifting local midnight to UTC', () => {
+    const localMidnight = new Date(2026, 6, 19, 0, 30);
 
-    assert.equal(getDashboardRangeQuery(7, aucklandMidnight).current.to, '2026-07-19');
+    assert.equal(getDashboardRangeQuery(7, localMidnight).current.to, '2026-07-19');
   });
 });
 
