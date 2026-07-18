@@ -649,7 +649,7 @@ export function AnalyticsPage() {
                 <button
                   type="submit"
                   disabled={isBusy || prompt.trim().length === 0}
-                  className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-md bg-blue-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-md bg-blue-700 px-4 text-sm font-semibold text-white transition-colors hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Send aria-hidden="true" className="h-4 w-4" />
                   {status === 'planning'

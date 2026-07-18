@@ -12,10 +12,14 @@ import {
   type AnalyticsExecutionResult,
   type AnalyticsPlanPreview,
 } from './analyticsExecutor';
+import type { AnalyticsAuditInput, AnalyticsAuditRecorder } from './analyticsAudit';
 
 export type AnalyticsRouterDependencies = {
   requireAuth: RequestHandler;
   requireBusinessAccess: RequestHandler;
+  planRateLimit: RequestHandler;
+  executeRateLimit: RequestHandler;
+  audit: AnalyticsAuditRecorder;
   planAnalytics: (
     input: unknown,
     options?: { signal?: AbortSignal },
@@ -31,14 +35,24 @@ export function createAnalyticsRouter(dependencies: AnalyticsRouterDependencies)
     '/plan',
     dependencies.requireAuth,
     dependencies.requireBusinessAccess,
+    dependencies.planRateLimit,
     asyncHandler(async (req, res) => {
       if (!assertBusinessContext(req.businessId, res)) return;
+      const startedAt = Date.now();
 
       let request;
       try {
         request = parseAnalyticsPlannerRequest(req.body);
       } catch (error) {
         if (error instanceof ZodError) {
+          recordAudit(dependencies.audit, {
+            event: 'analytics.plan',
+            outcome: 'rejected',
+            durationMs: Date.now() - startedAt,
+            userId: req.userId,
+            businessId: req.businessId,
+            code: 'INVALID_ANALYTICS_REQUEST',
+          });
           sendInvalidPlannerRequest(error, res);
           return;
         }
@@ -50,7 +64,27 @@ export function createAnalyticsRouter(dependencies: AnalyticsRouterDependencies)
       req.once('aborted', abortPlanning);
 
       try {
-        res.json(await dependencies.planAnalytics(request, { signal: controller.signal }));
+        const result = await dependencies.planAnalytics(request, { signal: controller.signal });
+        recordAudit(dependencies.audit, {
+          event: 'analytics.plan',
+          outcome: 'success',
+          durationMs: Date.now() - startedAt,
+          userId: req.userId,
+          businessId: req.businessId,
+          source: result.source,
+          ...(result.status === 'ready' ? { plan: result.plan } : {}),
+        });
+        res.json(result);
+      } catch (error) {
+        recordAudit(dependencies.audit, {
+          event: 'analytics.plan',
+          outcome: 'failure',
+          durationMs: Date.now() - startedAt,
+          userId: req.userId,
+          businessId: req.businessId,
+          code: 'ANALYTICS_PLANNER_FAILED',
+        });
+        throw error;
       } finally {
         req.off('aborted', abortPlanning);
       }
@@ -77,20 +111,72 @@ export function createAnalyticsRouter(dependencies: AnalyticsRouterDependencies)
     '/execute',
     dependencies.requireAuth,
     dependencies.requireBusinessAccess,
+    dependencies.executeRateLimit,
     asyncHandler(async (req, res) => {
       if (!assertBusinessContext(req.businessId, res)) return;
+      const startedAt = Date.now();
+      let plan;
 
       try {
-        const plan = parseAnalyticsPlan(req.body);
-        res.json(await dependencies.executeAnalyticsPlan(req.businessId, plan));
+        plan = parseAnalyticsPlan(req.body);
+        const result = await dependencies.executeAnalyticsPlan(req.businessId, plan);
+        recordAudit(dependencies.audit, {
+          event: 'analytics.execute',
+          outcome: 'success',
+          durationMs: Date.now() - startedAt,
+          userId: req.userId,
+          businessId: req.businessId,
+          plan,
+        });
+        res.json(result);
       } catch (error) {
-        if (sendKnownAnalyticsError(error, res)) return;
+        const knownCode = getKnownAnalyticsErrorCode(error);
+        if (knownCode) {
+          recordAudit(dependencies.audit, {
+            event: 'analytics.execute',
+            outcome: knownCode === 'ANALYTICS_TIMEOUT' ? 'failure' : 'rejected',
+            durationMs: Date.now() - startedAt,
+            userId: req.userId,
+            businessId: req.businessId,
+            code: knownCode,
+            ...(plan ? { plan } : {}),
+          });
+          sendKnownAnalyticsError(error, res);
+          return;
+        }
+        recordAudit(dependencies.audit, {
+          event: 'analytics.execute',
+          outcome: 'failure',
+          durationMs: Date.now() - startedAt,
+          userId: req.userId,
+          businessId: req.businessId,
+          code: 'ANALYTICS_EXECUTION_FAILED',
+          ...(plan ? { plan } : {}),
+        });
         throw error;
       }
     }),
   );
 
   return router;
+}
+
+function getKnownAnalyticsErrorCode(
+  error: unknown,
+): 'INVALID_ANALYTICS_PLAN' | 'ANALYTICS_TIMEOUT' | null {
+  if (error instanceof ZodError || error instanceof AnalyticsPlanSemanticError) {
+    return 'INVALID_ANALYTICS_PLAN';
+  }
+
+  return error instanceof AnalyticsExecutionTimeoutError ? 'ANALYTICS_TIMEOUT' : null;
+}
+
+function recordAudit(recorder: AnalyticsAuditRecorder, input: AnalyticsAuditInput): void {
+  try {
+    recorder.record(input);
+  } catch {
+    // Observability must never change the analytics response path.
+  }
 }
 
 function sendInvalidPlannerRequest(error: ZodError, res: Response): void {
