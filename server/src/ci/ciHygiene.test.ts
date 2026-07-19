@@ -94,7 +94,7 @@ describe('CI hygiene', () => {
     assert.match(rootPackageJson.scripts.typecheck, /npm run typecheck:e2e/);
   });
 
-  it('deploys Pages only after CI succeeds and builds an explicit static preview', () => {
+  it('deploys Pages only after CI succeeds and gates the recorded demo build', () => {
     const workflow = readWorkspaceFile('.github/workflows/deploy-pages.yml');
 
     assert.match(workflow, /workflow_run:/);
@@ -102,8 +102,12 @@ describe('CI hygiene', () => {
     assert.match(workflow, /conclusion\s*==\s*'success'/);
     assert.doesNotMatch(workflow, /^\s{2}push:/m);
     assert.match(workflow, /cancel-in-progress:\s*true/);
-    assert.match(workflow, /timeout-minutes:\s*15/);
-    assert.match(workflow, /VITE_STATIC_PREVIEW:\s*'true'/);
+    assert.match(workflow, /timeout-minutes:\s*25/);
+    assert.match(workflow, /schedule:/);
+    assert.match(workflow, /npm run demo:record/);
+    assert.match(workflow, /npm run test:e2e:demo/);
+    assert.match(workflow, /VITE_DEMO_MODE:\s*'true'/);
+    assert.doesNotMatch(workflow, /VITE_STATIC_PREVIEW/);
     assert.match(workflow, /github\.event\.workflow_run\.head_sha/);
   });
 
