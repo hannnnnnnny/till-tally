@@ -7,46 +7,61 @@ const DESKTOP_VIEWPORTS = [
 ];
 
 for (const viewport of DESKTOP_VIEWPORTS) {
-  test(`keeps the full hero preview visible at ${viewport.width}x${viewport.height}`, async ({
+  test(`keeps the centered hero visible at ${viewport.width}x${viewport.height}`, async ({
     page,
   }) => {
     await page.setViewportSize(viewport);
     await page.goto('/');
 
-    const preview = page.getByTestId('hero-dashboard-backdrop');
-    const clippingArea = page.getByTestId('hero-dashboard-clip');
+    const heroHeading = page.getByRole('heading', {
+      name: 'TillTally',
+      level: 1,
+    });
 
-    await expect(preview).toBeVisible();
-    await expect(clippingArea).toBeVisible();
+    const previewButton = page.getByRole('link', {
+      name: 'View dashboard preview',
+    });
 
-    const previewBox = await preview.boundingBox();
-    const clippingBox = await clippingArea.boundingBox();
+    await expect(heroHeading).toBeVisible();
+    await expect(previewButton).toBeVisible();
 
-    expect(previewBox).not.toBeNull();
-    expect(clippingBox).not.toBeNull();
+    // The decorative dashboard was removed from the hero section.
+    await expect(page.getByTestId('hero-dashboard-backdrop')).toHaveCount(0);
+    await expect(page.getByTestId('hero-dashboard-clip')).toHaveCount(0);
 
-    if (!previewBox || !clippingBox) {
-      throw new Error('Hero preview geometry was unavailable');
+    const headingBox = await heroHeading.boundingBox();
+
+    expect(headingBox).not.toBeNull();
+
+    if (!headingBox) {
+      throw new Error('Hero heading geometry was unavailable');
     }
 
-    expect(previewBox.x).toBeGreaterThanOrEqual(clippingBox.x);
-    expect(previewBox.y).toBeGreaterThanOrEqual(clippingBox.y);
-    expect(previewBox.x + previewBox.width).toBeLessThanOrEqual(
-      clippingBox.x + clippingBox.width + 0.5,
-    );
-    expect(previewBox.y + previewBox.height).toBeLessThanOrEqual(
-      clippingBox.y + clippingBox.height + 0.5,
-    );
+    expect(headingBox.x).toBeGreaterThanOrEqual(0);
+    expect(headingBox.y).toBeGreaterThanOrEqual(0);
+    expect(headingBox.x + headingBox.width).toBeLessThanOrEqual(viewport.width);
+    expect(headingBox.y + headingBox.height).toBeLessThanOrEqual(viewport.height);
 
     await expectNoHorizontalOverflow(page);
   });
 }
 
-test('hides the decorative preview without mobile horizontal overflow', async ({ page }) => {
+test('keeps the centered hero usable without mobile horizontal overflow', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto('/');
 
-  await expect(page.getByTestId('hero-dashboard-backdrop')).toBeHidden();
+  await expect(
+    page.getByRole('heading', {
+      name: 'TillTally',
+      level: 1,
+    }),
+  ).toBeVisible();
+
+  await expect(page.getByRole('link', { name: 'View dashboard preview' })).toBeVisible();
+
+  await expect(page.getByTestId('hero-dashboard-backdrop')).toHaveCount(0);
+  await expect(page.getByTestId('hero-dashboard-clip')).toHaveCount(0);
+
   await expectNoHorizontalOverflow(page);
 });
 
