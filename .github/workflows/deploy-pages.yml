@@ -6,6 +6,9 @@ on:
     types: [completed]
     branches: [main]
   workflow_dispatch:
+  schedule:
+    # Weekly refresh re-records fixtures so demo sample dates stay current.
+    - cron: '0 16 * * 1'
 
 concurrency:
   group: pages
@@ -18,15 +21,32 @@ permissions:
 
 jobs:
   deploy:
-    name: build and deploy client
+    name: record demo data, verify, and deploy
     if: >-
       github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'schedule' ||
       github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    services:
+      db:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: tilltally
+          POSTGRES_PASSWORD: tilltally
+          POSTGRES_DB: tilltally
+        ports:
+          - '5432:5432'
+        options: >-
+          --health-cmd "pg_isready -U tilltally -d tilltally"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://tilltally:tilltally@localhost:5432/tilltally?schema=public
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -42,11 +62,52 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build client
+      - name: Migrate and seed the demo database
+        run: |
+          npm run prisma:generate -w server
+          npm run prisma:deploy -w server
+          npm run db:seed
+
+      - name: Build and start the API
+        run: |
+          npm run build -w @till-tally/analytics-contracts
+          npm run build -w server
+          export JWT_ACCESS_SECRET="$(openssl rand -hex 32)"
+          export JWT_REFRESH_SECRET="$(openssl rand -hex 32)"
+          node server/dist/app.js &
+          echo $! > server.pid
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://localhost:4000/api/health/ready > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo 'API did not become ready' >&2
+          exit 1
+
+      - name: Record demo fixtures
+        run: npm run demo:record
+        env:
+          DEMO_SERVER_URL: http://localhost:4000
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Demo smoke gate
+        run: npm run test:e2e:demo
+
+      - name: Build client for Pages
         run: npm run build -w client
         env:
-          VITE_BASE_PATH: /${{ github.event.repository.name }}/
-          VITE_STATIC_PREVIEW: 'true'
+          VITE_BASE_PATH: /${{ github.event.repository.name || 'till-tally' }}/
+          VITE_DEMO_MODE: 'true'
+
+      - name: Stop the API
+        if: always()
+        run: |
+          if [ -f server.pid ]; then
+            kill "$(cat server.pid)" || true
+          fi
 
       - name: Configure Pages
         uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
