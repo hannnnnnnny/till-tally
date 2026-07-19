@@ -4,6 +4,7 @@ import {
   getKnownMigrationDriftCleanupSql,
   getKnownMigrationDriftRepairSql,
   isKnownBusinessMigrationDrift,
+  isMissingMigrationsTableError,
   legacyBusinessMigrationName,
 } from './migrationDrift';
 
@@ -88,6 +89,11 @@ main()
     await prisma.$disconnect();
   })
   .catch((error: unknown) => {
+    if (isMissingMigrationsTableError(error)) {
+      console.info('No Prisma migrations table found; nothing to repair on a fresh database.');
+      return;
+    }
+
     console.error(error);
     process.exitCode = 1;
   });

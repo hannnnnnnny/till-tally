@@ -64,6 +64,31 @@ export function isPrismaMissingTableError(error: unknown, tableName?: string): b
   return typeof prismaError.meta?.table === 'string' && prismaError.meta.table.endsWith(tableName);
 }
 
+// A fresh database has no _prisma_migrations table yet: model queries fail
+// with P2021, raw queries with P2010 wrapping Postgres 42P01.
+export function isMissingMigrationsTableError(error: unknown): boolean {
+  if (isPrismaMissingTableError(error, '_prisma_migrations')) {
+    return true;
+  }
+
+  if (!isObject(error)) {
+    return false;
+  }
+
+  const prismaError = error as {
+    code?: unknown;
+    meta?: { code?: unknown; message?: unknown };
+  };
+
+  if (prismaError.code !== 'P2010') {
+    return false;
+  }
+
+  const rawMessage = typeof prismaError.meta?.message === 'string' ? prismaError.meta.message : '';
+
+  return prismaError.meta?.code === '42P01' && rawMessage.includes('_prisma_migrations');
+}
+
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
