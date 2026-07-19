@@ -35,6 +35,7 @@ import {
   type SavedAnalyticsReport,
 } from '../analytics/types';
 import { useBusinesses } from '../businesses/BusinessContext';
+import { getDemoInfo } from '../config/demoInfo';
 import { PageHeader } from '../ui/PageLayout';
 import { InlineNotice, StatePanel } from '../ui/StatePanel';
 import { getActionClassName } from '../ui/layout';
@@ -75,6 +76,9 @@ export function AnalyticsPage() {
   } = useBusinesses();
   const [prompt, setPrompt] = useState('');
   const [promptError, setPromptError] = useState<string | null>(null);
+  // In demo mode these questions have recorded results, so surfacing them
+  // guides visitors to the paths that show real output.
+  const demoPresetQuestions = getDemoInfo()?.presetQuestions ?? [];
   const [status, setStatus] = useState<WorkspaceStatus>('idle');
   const [plan, setPlan] = useState<AnalyticsPlan | null>(null);
   const [planSource, setPlanSource] = useState<'local' | 'provider'>('local');
@@ -638,6 +642,29 @@ export function AnalyticsPage() {
                   {prompt.length}/500
                 </span>
               </div>
+
+              {demoPresetQuestions.length > 0 && !isRefining && (
+                <div className="mt-3">
+                  <p className="text-xs font-semibold uppercase text-slate-400">Try one of these</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {demoPresetQuestions.map((question) => (
+                      <button
+                        key={question}
+                        type="button"
+                        disabled={isBusy}
+                        onClick={() => {
+                          setPrompt(question);
+                          setPromptError(null);
+                          promptRef.current?.focus();
+                        }}
+                        className="rounded-full border border-slate-600 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:border-blue-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {question}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {promptError && (
                 <p role="alert" className="mt-3 text-sm font-medium text-red-300">

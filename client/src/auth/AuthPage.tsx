@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { getDemoInfo } from '../config/demoInfo';
+import { runtimeConfig } from '../config/runtime';
 import { InlineNotice } from '../ui/StatePanel';
 import { useAuth } from './AuthContext';
 import { type AuthFormValues, type AuthMode } from './types';
@@ -9,13 +11,18 @@ export function AuthPage() {
   const [mode, setMode] = useState<AuthMode>('login');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const demoInfo = runtimeConfig.isDemo ? getDemoInfo() : null;
 
   const {
     register,
     handleSubmit,
     reset,
     formState: { errors },
-  } = useForm<AuthFormValues>();
+  } = useForm<AuthFormValues>({
+    defaultValues: demoInfo
+      ? { email: demoInfo.credentials.email, password: demoInfo.credentials.password }
+      : undefined,
+  });
 
   function handleModeChange(nextMode: AuthMode) {
     setMode(nextMode);
@@ -44,6 +51,11 @@ export function AuthPage() {
           <p className="mt-2 text-sm text-slate-600">
             {mode === 'login' ? 'Sign in to your dashboard' : 'Create your account'}
           </p>
+          {demoInfo ? (
+            <p className="mt-2 rounded-md bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-900">
+              Demo workspace credentials are pre-filled — just press Sign in.
+            </p>
+          ) : null}
         </div>
 
         <div className="mb-6 grid grid-cols-2 rounded-md bg-slate-100 p-1">
