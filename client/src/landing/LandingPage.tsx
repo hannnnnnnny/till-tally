@@ -78,38 +78,35 @@ export function LandingPage() {
         onPrimaryAction={enterDemo}
       />
 
-<section className="relative isolate flex min-h-[68dvh] items-center overflow-hidden bg-slate-50 px-4 pt-16 dark:bg-slate-950 sm:px-6 lg:px-8">
-  <div className="mx-auto w-full max-w-4xl py-20 text-center">
-    <p className="text-sm font-semibold text-blue-700 dark:text-blue-300">
-      Retail analytics for small businesses
-    </p>
+      <section className="relative isolate flex min-h-[68dvh] items-center overflow-hidden bg-slate-50 px-4 pt-16 dark:bg-slate-950 sm:px-6 lg:px-8">
+        <div className="mx-auto w-full max-w-4xl py-20 text-center">
+          <p className="text-sm font-semibold text-blue-700 dark:text-blue-300">
+            Retail analytics for small businesses
+          </p>
 
-    <h1 className="mt-5 text-5xl font-black leading-[0.98] text-slate-950 sm:text-6xl lg:text-7xl dark:text-white">
-      TillTally
-    </h1>
+          <h1 className="mt-5 text-5xl font-black leading-[0.98] text-slate-950 sm:text-6xl lg:text-7xl dark:text-white">
+            TillTally
+          </h1>
 
-    <p className="mx-auto mt-6 max-w-2xl text-base leading-8 text-slate-700 sm:text-lg dark:text-slate-200">
-      Turn messy sales CSVs into clear decisions for revenue, margin, products, and inventory.
-    </p>
+          <p className="mx-auto mt-6 max-w-2xl text-base leading-8 text-slate-700 sm:text-lg dark:text-slate-200">
+            Turn messy sales CSVs into clear decisions for revenue, margin, products, and inventory.
+          </p>
 
-    <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-      <PrimaryAction
-        target={primaryTarget}
-        onActivate={enterDemo}
-        className="inline-flex h-11 items-center justify-center rounded-md bg-blue-700 px-5 text-sm font-semibold text-white shadow-sm shadow-blue-900/10 transition hover:bg-blue-800 active:translate-y-px"
-      >
-        {primaryLabel}
-      </PrimaryAction>
+          <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+            <PrimaryAction
+              target={primaryTarget}
+              onActivate={enterDemo}
+              className="inline-flex h-11 items-center justify-center rounded-md bg-blue-700 px-5 text-sm font-semibold text-white shadow-sm shadow-blue-900/10 transition hover:bg-blue-800 active:translate-y-px"
+            >
+              {primaryLabel}
+            </PrimaryAction>
 
-      <a
-        href="#preview"
-        className="inline-flex h-11 items-center justify-center rounded-md border border-slate-300 bg-white/80 px-5 text-sm font-semibold text-slate-900 transition hover:bg-white active:translate-y-px dark:border-slate-600 dark:bg-slate-900/75 dark:text-white dark:hover:bg-slate-900"
-      >
-        View dashboard preview
-      </a>
-    </div>
-  </div>
-</section>
+            <a
+              href="#preview"
+              className="inline-flex h-11 items-center justify-center rounded-md border border-slate-300 bg-white/80 px-5 text-sm font-semibold text-slate-900 transition hover:bg-white active:translate-y-px dark:border-slate-600 dark:bg-slate-900/75 dark:text-white dark:hover:bg-slate-900"
+            >
+              View dashboard preview
+            </a>
           </div>
         </div>
       </section>
