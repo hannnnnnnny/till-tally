@@ -65,8 +65,7 @@ export function createAuthRoutes(
       template: '/api/auth/register',
     },
     {
-      handler: () =>
-        session.isActive() ? { json: fixture.login, status: 200 } : unauthenticated,
+      handler: () => (session.isActive() ? { json: fixture.login, status: 200 } : unauthenticated),
       method: 'POST',
       template: '/api/auth/refresh',
     },

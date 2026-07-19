@@ -164,9 +164,15 @@ function queryProducts(
   const page = Math.max(1, Number(searchParams.get('page') ?? '1') || 1);
   const pageSize = Math.max(1, Number(searchParams.get('pageSize') ?? '20') || 20);
 
-  const filtered = fixture.data.filter((row) => matchesProductFilters(row, search, category, status));
+  const filtered = fixture.data.filter((row) =>
+    matchesProductFilters(row, search, category, status),
+  );
   const sortValue = (row: ProductRow): number =>
-    sort === 'unitsSold' ? row.unitsSold : sort === 'grossMargin' ? row.grossMarginPct : row.revenue;
+    sort === 'unitsSold'
+      ? row.unitsSold
+      : sort === 'grossMargin'
+        ? row.grossMarginPct
+        : row.revenue;
   const sorted = [...filtered].sort((a, b) => (sortValue(a) - sortValue(b)) * order);
   const start = (page - 1) * pageSize;
 

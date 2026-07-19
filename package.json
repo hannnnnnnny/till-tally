@@ -24,7 +24,8 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"**/*.{ts,tsx,js,mjs,cjs,json,css,md}\"",
-    "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,cjs,json,css,md}\""
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,cjs,json,css,md}\"",
+    "test:e2e:demo": "playwright test -c playwright.demo.config.ts"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",

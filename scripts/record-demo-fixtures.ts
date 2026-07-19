@@ -44,11 +44,17 @@ async function request(
   return { status: response.status, json: await response.json() };
 }
 
-async function expectOk(method: 'GET' | 'POST', apiPath: string, body?: JsonValue): Promise<JsonValue> {
+async function expectOk(
+  method: 'GET' | 'POST',
+  apiPath: string,
+  body?: JsonValue,
+): Promise<JsonValue> {
   const result = await request(method, apiPath, body);
 
   if (result.status < 200 || result.status >= 300) {
-    throw new Error(`${method} ${apiPath} failed with ${result.status}: ${JSON.stringify(result.json)}`);
+    throw new Error(
+      `${method} ${apiPath} failed with ${result.status}: ${JSON.stringify(result.json)}`,
+    );
   }
 
   return result.json;
@@ -77,7 +83,11 @@ async function recordAuth(): Promise<void> {
   }
 
   businessId = businessList[0].id;
-  writeFixture('auth.json', { businesses, login: { ...login, accessToken: 'demo-access-token' }, me });
+  writeFixture('auth.json', {
+    businesses,
+    login: { ...login, accessToken: 'demo-access-token' },
+    me,
+  });
 }
 
 async function recordDashboard(): Promise<void> {
@@ -91,7 +101,10 @@ async function recordDashboard(): Promise<void> {
         `/api/dashboard/channel-breakdown?from=${range.from}&to=${range.to}`,
       ),
       range,
-      salesTrend: await expectOk('GET', `/api/dashboard/sales-trend?from=${range.from}&to=${range.to}`),
+      salesTrend: await expectOk(
+        'GET',
+        `/api/dashboard/sales-trend?from=${range.from}&to=${range.to}`,
+      ),
       summary: await expectOk('GET', `/api/dashboard/summary?from=${range.from}&to=${range.to}`),
     });
 
@@ -143,11 +156,18 @@ async function recordAnalytics(): Promise<void> {
     throw new Error('The clarification sample unexpectedly produced a ready plan.');
   }
 
-  const createdReport = await expectOk('POST', '/api/analytics/saved-reports', {
-    name: SEEDED_REPORT_NAME,
-    plan: presets[0].plan.plan,
-    source: 'local',
-  });
+  // Recording is idempotent: reuse the seeded report if a previous run of
+  // this script already created it against the same database.
+  const existing = (await expectOk('GET', '/api/analytics/saved-reports')) as {
+    reports: Array<{ name: string }>;
+  };
+  const createdReport = existing.reports.find((report) => report.name === SEEDED_REPORT_NAME)
+    ? existing.reports.find((report) => report.name === SEEDED_REPORT_NAME)
+    : await expectOk('POST', '/api/analytics/saved-reports', {
+        name: SEEDED_REPORT_NAME,
+        plan: presets[0].plan.plan,
+        source: 'local',
+      });
   const savedReports = await expectOk('GET', '/api/analytics/saved-reports');
 
   writeFixture('analytics.json', { clarification, createdReport, presets, savedReports });

@@ -97,10 +97,18 @@ describe('demo read-model handlers', () => {
     const previous = await call('GET', '/api/dashboard/summary', 'from=2026-05-27&to=2026-06-25');
     assert.equal(previous.json, 'summary-30-previous');
 
-    const sevenDay = await call('GET', '/api/dashboard/sales-trend', 'from=2026-07-19&to=2026-07-25');
+    const sevenDay = await call(
+      'GET',
+      '/api/dashboard/sales-trend',
+      'from=2026-07-19&to=2026-07-25',
+    );
     assert.equal(sevenDay.json, 'trend-7-current');
 
-    const unknownSpan = await call('GET', '/api/dashboard/summary', 'from=2026-07-11&to=2026-07-25');
+    const unknownSpan = await call(
+      'GET',
+      '/api/dashboard/summary',
+      'from=2026-07-11&to=2026-07-25',
+    );
     assert.equal(unknownSpan.json, 'summary-30-current');
   });
 

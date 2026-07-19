@@ -48,15 +48,13 @@ const seedReport: SavedReport = {
     version: 1,
   },
   name: 'Daily revenue pulse',
-  versions: [{ createdAt: '2026-07-18T00:00:00.000Z', schemaVersion: 1, source: 'local', version: 1 }],
+  versions: [
+    { createdAt: '2026-07-18T00:00:00.000Z', schemaVersion: 1, source: 'local', version: 1 },
+  ],
 };
 
 function createCaller(routes: ReturnType<typeof createAnalyticsRoutes>) {
-  return (
-    method: string,
-    path: string,
-    body?: unknown,
-  ): DemoResponse | Promise<DemoResponse> => {
+  return (method: string, path: string, body?: unknown): DemoResponse | Promise<DemoResponse> => {
     const match = matchDemoRoute(routes, method, path);
     assert.ok(match, `expected route for ${method} ${path}`);
 
@@ -73,7 +71,10 @@ function createCaller(routes: ReturnType<typeof createAnalyticsRoutes>) {
 
 describe('demo analytics handlers', () => {
   it('normalizes questions for matching', () => {
-    assert.equal(normalizeQuestion('  Show DAILY revenue, this month!  '), 'show daily revenue this month');
+    assert.equal(
+      normalizeQuestion('  Show DAILY revenue, this month!  '),
+      'show daily revenue this month',
+    );
   });
 
   it('serves preset plans and falls back to clarification', async () => {

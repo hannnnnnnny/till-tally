@@ -12,7 +12,12 @@ const fixture = {
 
 const credentials = { email: 'demo@x', password: 'pw' };
 
-function call(routes: ReturnType<typeof createAuthRoutes>, method: string, path: string, body?: unknown) {
+function call(
+  routes: ReturnType<typeof createAuthRoutes>,
+  method: string,
+  path: string,
+  body?: unknown,
+) {
   const match = matchDemoRoute(routes, method, path);
   assert.ok(match, `expected a demo route for ${method} ${path}`);
 
@@ -67,10 +72,7 @@ describe('demo auth handlers', () => {
 
     for (const response of [register, createBusiness]) {
       assert.equal(response.status, 403);
-      assert.equal(
-        (response.json as { error: { code: string } }).error.code,
-        'DEMO_READ_ONLY',
-      );
+      assert.equal((response.json as { error: { code: string } }).error.code, 'DEMO_READ_ONLY');
     }
   });
 });

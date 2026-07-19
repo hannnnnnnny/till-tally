@@ -1,10 +1,6 @@
 import { setDemoInfo } from '../config/demoInfo';
 import { createAnalyticsRoutes, type DemoAnalyticsFixture } from './analyticsHandlers';
-import {
-  createAuthRoutes,
-  createDemoSessionStore,
-  type DemoAuthFixture,
-} from './authHandlers';
+import { createAuthRoutes, createDemoSessionStore, type DemoAuthFixture } from './authHandlers';
 import { installDemoFetch } from './demoFetch';
 import { resolveDemoStorage } from './demoStorage';
 import { createReadRoutes, type DemoReadFixtures } from './readHandlers';
@@ -38,6 +34,10 @@ function loadFixture<T>(name: string): T {
 
 export function setupDemo(): void {
   const manifest = loadFixture<DemoManifest>('manifest');
+
+  if (!manifest.demoCredentials?.email || !manifest.demoCredentials.password) {
+    throw new Error('Demo fixtures are outdated. Re-run "npm run demo:record".');
+  }
   const auth = loadFixture<DemoAuthFixture>('auth');
   const analytics = loadFixture<
     DemoAnalyticsFixture & { savedReports: { reports: SavedReport[] } }
