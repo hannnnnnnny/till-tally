@@ -38,40 +38,34 @@ export function LandingPage() {
     <div className="min-h-screen overflow-x-hidden bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-slate-50">
       <LandingNav primaryTarget={primaryTarget} primaryLabel={primaryLabel} />
 
-      <section className="relative isolate min-h-[88dvh] overflow-hidden bg-slate-50 dark:bg-slate-950">
-        <div className="absolute inset-0 bg-slate-50/90 dark:bg-slate-950/90" />
-        <div className="absolute inset-x-0 bottom-0 top-20 hidden overflow-hidden opacity-55 sm:opacity-70 lg:block">
-          <div className="absolute left-1/2 top-10 w-[980px] -translate-x-[26%] sm:top-14 lg:top-20 lg:w-[1180px] lg:-translate-x-[12%]">
-            <HeroDashboardPreview />
-          </div>
-        </div>
+      <section className="relative isolate flex min-h-[68dvh] items-center overflow-hidden bg-slate-50 px-4 pt-16 dark:bg-slate-950 sm:px-6 lg:px-8">
+        <div className="mx-auto w-full max-w-4xl py-20 text-center">
+          <p className="text-sm font-semibold text-blue-700 dark:text-blue-300">
+            Retail analytics for small businesses
+          </p>
 
-        <div className="relative z-10 mx-auto flex min-h-[calc(88dvh-72px)] max-w-7xl items-center px-4 pb-16 pt-24 sm:px-6 lg:px-8">
-          <div className="w-full max-w-3xl py-12">
-            <p className="text-sm font-semibold text-blue-700 dark:text-blue-300">
-              Retail analytics for small businesses
-            </p>
-            <h1 className="mt-5 max-w-2xl text-4xl font-black leading-[0.98] text-slate-950 sm:text-6xl lg:text-7xl dark:text-white">
-              TillTally
-            </h1>
-            <p className="mt-6 max-w-full break-words text-base leading-8 text-slate-700 sm:max-w-xl sm:text-lg dark:text-slate-200">
-              Turn messy sales CSVs into clear decisions for revenue, margin, products, and
-              inventory.
-            </p>
-            <div className="mt-8 flex max-w-sm flex-col gap-3 sm:max-w-none sm:flex-row">
-              <Link
-                to={primaryTarget}
-                className="inline-flex h-11 w-full items-center justify-center rounded-md bg-blue-700 px-5 text-sm font-semibold text-white shadow-sm shadow-blue-900/10 transition hover:bg-blue-800 active:translate-y-px sm:w-auto"
-              >
-                {primaryLabel}
-              </Link>
-              <a
-                href="#preview"
-                className="inline-flex h-11 w-full items-center justify-center rounded-md border border-slate-300 bg-white/80 px-5 text-sm font-semibold text-slate-900 transition hover:bg-white active:translate-y-px dark:border-slate-600 dark:bg-slate-900/75 dark:text-white dark:hover:bg-slate-900 sm:w-auto"
-              >
-                View dashboard preview
-              </a>
-            </div>
+          <h1 className="mt-5 text-5xl font-black leading-[0.98] text-slate-950 sm:text-6xl lg:text-7xl dark:text-white">
+            TillTally
+          </h1>
+
+          <p className="mx-auto mt-6 max-w-2xl text-base leading-8 text-slate-700 sm:text-lg dark:text-slate-200">
+            Turn messy sales CSVs into clear decisions for revenue, margin, products, and inventory.
+          </p>
+
+          <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+            <Link
+              to={primaryTarget}
+              className="inline-flex h-11 items-center justify-center rounded-md bg-blue-700 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 active:translate-y-px"
+            >
+              {primaryLabel}
+            </Link>
+
+            <a
+              href="#preview"
+              className="inline-flex h-11 items-center justify-center rounded-md border border-slate-300 bg-white/80 px-5 text-sm font-semibold text-slate-900 transition hover:bg-white active:translate-y-px dark:border-slate-600 dark:bg-slate-900/75 dark:text-white dark:hover:bg-slate-900"
+            >
+              View dashboard preview
+            </a>
           </div>
         </div>
       </section>
