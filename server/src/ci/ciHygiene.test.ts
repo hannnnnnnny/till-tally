@@ -12,11 +12,46 @@ describe('CI hygiene', () => {
       'npm run prisma:validate -w server',
       'npm run lint',
       'npm run typecheck',
+      'npm run test:analytics-evals -w server',
       'npm test --workspaces --if-present',
+      'npm run test:e2e',
       'npm run build',
     ]) {
       assert.match(workflow, new RegExp(escapeRegExp(command)));
     }
+  });
+
+  it('keeps deterministic analytics evaluations in the merge gate', () => {
+    const workflow = readWorkspaceFile('.github/workflows/ci.yml');
+    const serverPackageJson = JSON.parse(readWorkspaceFile('server/package.json')) as PackageJson;
+
+    assert.match(workflow, /- name: Analytics evaluation/);
+    assert.equal(
+      serverPackageJson.scripts['test:analytics-evals'],
+      'tsx src/analytics/analyticsEvaluationCli.ts',
+    );
+  });
+
+  it('excludes tests and fixtures from the production server bundle', () => {
+    const serverPackageJson = JSON.parse(readWorkspaceFile('server/package.json')) as PackageJson;
+    const buildConfig = JSON.parse(readWorkspaceFile('server/tsconfig.build.json')) as {
+      exclude: string[];
+    };
+
+    assert.match(serverPackageJson.scripts.build, /tsc -p tsconfig\.build\.json/);
+    assert.match(serverPackageJson.scripts.build, /npm run clean/);
+    assert.deepEqual(buildConfig.exclude, [
+      'src/**/*.test.ts',
+      'src/analytics/analyticsEvaluation.ts',
+      'src/analytics/analyticsEvaluationCli.ts',
+    ]);
+  });
+
+  it('runs viewport regression tests with an installed Playwright browser', () => {
+    const workflow = readWorkspaceFile('.github/workflows/ci.yml');
+
+    assert.match(workflow, /npx playwright install --with-deps chromium/);
+    assert.match(workflow, /npm run test:e2e/);
   });
 
   it('keeps CI labels ASCII-clean so job names render correctly', () => {
@@ -50,6 +85,53 @@ describe('CI hygiene', () => {
 
     assert.equal(rootPackageJson.scripts['prisma:validate'], 'npm run prisma:validate -w server');
     assert.equal(serverPackageJson.scripts['prisma:validate'], 'prisma validate');
+  });
+
+  it('typechecks the Playwright configuration and browser tests', () => {
+    const rootPackageJson = JSON.parse(readWorkspaceFile('package.json')) as PackageJson;
+
+    assert.equal(rootPackageJson.scripts['typecheck:e2e'], 'tsc --noEmit -p tsconfig.e2e.json');
+    assert.match(rootPackageJson.scripts.typecheck, /npm run typecheck:e2e/);
+  });
+
+  it('deploys Pages only after CI succeeds and gates the recorded demo build', () => {
+    const workflow = readWorkspaceFile('.github/workflows/deploy-pages.yml');
+
+    assert.match(workflow, /workflow_run:/);
+    assert.match(workflow, /workflows:\s*\[CI\]/);
+    assert.match(workflow, /conclusion\s*==\s*'success'/);
+    assert.doesNotMatch(workflow, /^\s{2}push:/m);
+    assert.match(workflow, /cancel-in-progress:\s*true/);
+    assert.match(workflow, /timeout-minutes:\s*25/);
+    assert.match(workflow, /schedule:/);
+    assert.match(workflow, /npm run demo:record/);
+    assert.match(workflow, /npm run test:e2e:demo/);
+    assert.match(workflow, /VITE_DEMO_MODE:\s*'true'/);
+    assert.doesNotMatch(workflow, /VITE_STATIC_PREVIEW/);
+    assert.match(workflow, /github\.event\.workflow_run\.head_sha/);
+  });
+
+  it('pins every GitHub Pages deployment action to an immutable commit', () => {
+    const workflow = readWorkspaceFile('.github/workflows/deploy-pages.yml');
+    const actionReferences = workflow.match(/^\s*uses:\s*actions\/[^@\s]+@([^\s#]+)/gm) ?? [];
+
+    assert.equal(actionReferences.length, 5);
+
+    for (const reference of actionReferences) {
+      assert.match(reference, /@[0-9a-f]{40}$/);
+    }
+  });
+
+  it('pins CI bootstrap actions and applies a finite job timeout', () => {
+    const workflow = readWorkspaceFile('.github/workflows/ci.yml');
+    const actionReferences = workflow.match(/^\s*uses:\s*actions\/[^@\s]+@([^\s#]+)/gm) ?? [];
+
+    assert.equal(actionReferences.length, 2);
+    assert.match(workflow, /timeout-minutes:\s*15/);
+
+    for (const reference of actionReferences) {
+      assert.match(reference, /@[0-9a-f]{40}$/);
+    }
   });
 });
 

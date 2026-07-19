@@ -36,6 +36,7 @@ import {
   type ImportMappingTemplate,
 } from './templates';
 import { validateMappedCsvRows, type PreflightValidation } from './rowValidation';
+import { PageHeader, Surface } from '../ui/PageLayout';
 import { InlineNotice, StatePanel } from '../ui/StatePanel';
 
 const MAX_CSV_FILE_SIZE_BYTES = 25 * 1024 * 1024;
@@ -480,29 +481,28 @@ export function CsvImportPanel() {
   }
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <p className="text-sm font-medium text-slate-500">Data import</p>
-          <h2 className="mt-1 text-2xl font-bold text-slate-900">CSV imports</h2>
-          {activeBusiness && <p className="mt-1 text-sm text-slate-600">{activeBusiness.name}</p>}
-        </div>
-
-        <div className="grid w-full grid-cols-2 rounded-md bg-slate-100 p-1 sm:w-56">
-          {IMPORT_MODES.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => setMode(option.value)}
-              className={`rounded px-3 py-2 text-sm font-medium ${
-                mode === option.value ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'
-              }`}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-      </div>
+    <Surface>
+      <PageHeader
+        eyebrow="Data import"
+        title="CSV imports"
+        description={activeBusiness ? activeBusiness.name : 'Select a business to import data'}
+        actions={
+          <div className="grid w-full grid-cols-2 rounded-md bg-slate-100 p-1 sm:w-56">
+            {IMPORT_MODES.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setMode(option.value)}
+                className={`min-h-10 rounded px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
+                  mode === option.value ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        }
+      />
 
       {!activeBusinessHeaders && (
         <InlineNotice tone="warning" className="mt-5">
@@ -556,7 +556,7 @@ export function CsvImportPanel() {
 
         <ImportResultPanel data={displayData} isLoadingDetail={isLoadingDetail} />
       </div>
-    </section>
+    </Surface>
   );
 }
 

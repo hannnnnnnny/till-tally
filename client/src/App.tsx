@@ -1,10 +1,13 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
+import { BrowserRouter, HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthPage } from './auth/AuthPage';
 import { useAuth } from './auth/AuthContext';
 import { ProtectedRoute } from './auth/ProtectedRoute';
 import { BusinessProvider } from './businesses/BusinessContext';
+import { runtimeConfig } from './config/runtime';
 import { LandingPage } from './landing/LandingPage';
 import { AppShell } from './layout/AppShell';
+import { DemoBanner } from './layout/DemoBanner';
 import { DEFAULT_APP_PATH } from './navigation/routes';
 import { ChannelsPage } from './pages/ChannelsPage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -15,9 +18,16 @@ import { ReportsPage } from './pages/ReportsPage';
 import { WorkspacePage } from './pages/WorkspacePage';
 import { StatePanel } from './ui/StatePanel';
 
+const AnalyticsPage = lazy(() =>
+  import('./pages/AnalyticsPage').then(({ AnalyticsPage: Page }) => ({ default: Page })),
+);
+
 export default function App() {
+  const Router = runtimeConfig.routerMode === 'hash' ? HashRouter : BrowserRouter;
+
   return (
-    <BrowserRouter>
+    <Router>
+      <DemoBanner />
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/auth" element={<AuthRoute />} />
@@ -31,6 +41,22 @@ export default function App() {
           }
         >
           <Route path="dashboard" element={<DashboardPage />} />
+          <Route
+            path="analytics"
+            element={
+              <Suspense
+                fallback={
+                  <StatePanel
+                    tone="loading"
+                    minHeight="lg"
+                    message="Loading analytics workspace..."
+                  />
+                }
+              >
+                <AnalyticsPage />
+              </Suspense>
+            }
+          />
           <Route path="channels" element={<ChannelsPage />} />
           <Route path="imports" element={<ImportsPage />} />
           <Route path="products" element={<ProductsPage />} />
@@ -40,12 +66,16 @@ export default function App() {
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </BrowserRouter>
+    </Router>
   );
 }
 
 function AuthRoute() {
   const { status } = useAuth();
+
+  if (runtimeConfig.isStaticPreview) {
+    return <Navigate to="/" replace />;
+  }
 
   if (status === 'loading') {
     return (

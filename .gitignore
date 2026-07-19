@@ -25,3 +25,14 @@ uploads/
 
 # Test coverage
 coverage/
+playwright-report/
+test-results/
+
+# Local AI tooling scratch output — never commit
+docs/superpowers/
+.impeccable/
+.playwright-cli/
+output/
+
+# Generated demo fixtures — recorded at deploy time
+client/src/demo/fixtures/

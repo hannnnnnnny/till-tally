@@ -14,6 +14,7 @@ import {
   type InventoryRiskGroup,
 } from '../inventory/insights';
 import { type InventoryInsights, type InventoryRiskItem } from '../inventory/types';
+import { PageHeader, SectionHeader, Surface } from '../ui/PageLayout';
 import { InlineNotice, StatePanel } from '../ui/StatePanel';
 
 type InventoryPageStatus = 'idle' | 'loading' | 'ready' | 'error';
@@ -90,25 +91,28 @@ export function InventoryPage() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-sm font-medium text-slate-500">Inventory</p>
-            <h2 className="mt-1 text-2xl font-bold text-slate-950">Risk overview</h2>
-            <p className="mt-1 text-sm text-slate-600">
-              {activeBusiness
-                ? `${activeBusiness.name} inventory health`
-                : 'Select a business to view inventory risk'}
-            </p>
-          </div>
-
-          {insights && (
-            <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
-              <span className="font-medium text-slate-900">{formatInventoryWindow(insights)}</span>
-              <span className="block text-xs text-slate-500">Generated {insights.generatedAt}</span>
-            </div>
-          )}
-        </div>
+      <Surface tone="plain">
+        <PageHeader
+          eyebrow="Inventory"
+          title="Risk overview"
+          description={
+            activeBusiness
+              ? `${activeBusiness.name} inventory health`
+              : 'Select a business to view inventory risk'
+          }
+          actions={
+            insights && (
+              <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+                <span className="font-medium text-slate-900">
+                  {formatInventoryWindow(insights)}
+                </span>
+                <span className="block text-xs text-slate-500">
+                  Generated {insights.generatedAt}
+                </span>
+              </div>
+            )
+          }
+        />
 
         {businessStatus !== 'loading' && !activeBusinessHeaders && (
           <StatePanel
@@ -131,38 +135,36 @@ export function InventoryPage() {
         )}
 
         {activeBusinessHeaders && (
-          <dl className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-7">
+          <dl className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-3 2xl:grid-cols-7">
             {isLoading ? (
               <InventorySummarySkeleton />
             ) : (
               summaryCards.map((card) => (
-                <div key={card.key} className={`rounded-md border p-4 ${card.className}`}>
+                <div key={card.key} className={`rounded-md border p-3 sm:p-4 ${card.className}`}>
                   <dt className="text-xs font-semibold uppercase">{card.label}</dt>
-                  <dd className="mt-2 text-3xl font-bold">{card.value}</dd>
+                  <dd className="mt-2 text-2xl font-bold sm:text-3xl">{card.value}</dd>
                   <p className="mt-2 text-xs opacity-80">{card.helper}</p>
                 </div>
               ))
             )}
           </dl>
         )}
-      </section>
+      </Surface>
 
       {activeBusinessHeaders && (
-        <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="text-sm font-medium text-slate-500">Products</p>
-              <h3 className="mt-1 text-xl font-bold text-slate-950">Inventory actions</h3>
-              <p className="mt-1 text-sm text-slate-600">
-                Prioritise reorder, markdown, and stock-control work from the latest risk scan.
-              </p>
-            </div>
-            {insights && (
-              <p className="text-sm text-slate-500">
-                Sales pace uses the last {insights.salesWindow.days} days.
-              </p>
-            )}
-          </div>
+        <Surface>
+          <SectionHeader
+            eyebrow="Products"
+            title="Inventory actions"
+            description="Prioritise reorder, markdown, and stock-control work from the latest risk scan."
+            actions={
+              insights && (
+                <p className="text-sm text-slate-500">
+                  Sales pace uses the last {insights.salesWindow.days} days.
+                </p>
+              )
+            }
+          />
 
           <div className="mt-6">
             {isLoading && <InventorySectionsSkeleton />}
@@ -183,7 +185,7 @@ export function InventoryPage() {
               />
             )}
           </div>
-        </section>
+        </Surface>
       )}
     </div>
   );
@@ -233,7 +235,7 @@ function InventoryRiskRow({ item }: { item: InventoryRiskItem }) {
         <p className="mt-1 text-xs text-slate-500">{item.category ?? 'Uncategorised'}</p>
       </div>
 
-      <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <dl className="grid grid-cols-2 gap-3 xl:grid-cols-3">
         <InventoryMetric label="Stock" value={formatInventoryStock(item.currentStock)} />
         <InventoryMetric label="30-day units" value={String(item.unitsSoldLast30)} />
         <InventoryMetric label="Sales pace" value={formatDailySalesRate(item.dailySalesRate)} />

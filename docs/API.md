@@ -227,6 +227,102 @@ Per-channel aggregation (channel analysis, [`TT.md`](../TT.md) §10.7).
 
 ---
 
+## 5A. Analytics Builder
+
+Analytics builder endpoints use the strict, versioned contracts from
+`@till-tally/analytics-contracts`. All routes require a bearer access token and a verified
+`X-Business-Id` membership. Business scope is always taken from middleware, never from the body.
+
+### `POST /api/analytics/plan`
+
+Translates a bounded natural-language question into a validated analytics plan. The deterministic
+local planner handles common retail questions without a model. An optional server-side provider can
+handle additional phrasing, but its output must pass the same strict schema before it is returned.
+
+```json
+{
+  "question": "Show daily revenue this month",
+  "timezone": "Pacific/Auckland",
+  "currentPlan": null
+}
+```
+
+For a follow-up refinement, `currentPlan` may contain the previously validated plan. The server
+validates that context before it reaches a local or provider planner and retains unchanged settings.
+
+A successful translation returns `status: "ready"`, a plan, and `source: "local"` or
+`"provider"`. Ambiguous and unsupported requests return guided `clarification` or `unsupported`
+results with examples instead of inventing fields. Invalid input returns
+`400 INVALID_ANALYTICS_REQUEST`. Provider failures and timeouts safely fall back and never reach the
+analytics executor.
+
+### `POST /api/analytics/preview`
+
+Validates a plan and returns its title, datasets, table columns and chart shape without reading
+business data. Use this before execution to render a safe query preview.
+
+```json
+{
+  "schemaVersion": 1,
+  "metrics": ["revenue", "grossProfit"],
+  "dimensions": ["day"],
+  "dateRange": {
+    "from": "2026-06-01",
+    "to": "2026-06-30",
+    "timezone": "Pacific/Auckland"
+  },
+  "filters": [],
+  "sort": [{ "field": "day", "direction": "asc" }],
+  "limit": 31,
+  "chart": { "type": "line" }
+}
+```
+
+Unknown keys, raw query fragments and unsupported metric/dimension combinations return
+`400 INVALID_ANALYTICS_PLAN`.
+
+### `POST /api/analytics/execute`
+
+Validates and executes the same plan through allowlisted Prisma reads. The response contains
+chart-ready series, tabular rows and bounded execution metadata:
+
+```json
+{
+  "table": { "columns": [], "rows": [] },
+  "chart": { "type": "line", "categoryKey": "day", "series": [] },
+  "meta": {
+    "rowCount": 0,
+    "totalRows": 0,
+    "truncated": false,
+    "durationMs": 4,
+    "executedAt": "2026-07-19T00:00:00.000Z"
+  }
+}
+```
+
+Execution is limited to a 366-day range, 100 result rows and a 5-second timeout. A timeout returns
+`504 ANALYTICS_TIMEOUT` without exposing database or stack details.
+
+### Saved analytics reports
+
+Saved report routes retain validated plans rather than prompts, SQL, or executable code. Reports are
+private to the authenticated user inside the verified active business; out-of-scope ids return the
+same `404 SAVED_REPORT_NOT_FOUND` response as missing ids.
+
+| Method | Route | Purpose |
+|---|---|---|
+| `GET` | `/api/analytics/saved-reports` | List the current user's report library |
+| `POST` | `/api/analytics/saved-reports` | Save a named validated plan as version 1 |
+| `GET` | `/api/analytics/saved-reports/:id` | Load the latest plan and version metadata |
+| `PATCH` | `/api/analytics/saved-reports/:id` | Rename without changing plan history |
+| `POST` | `/api/analytics/saved-reports/:id/versions` | Append an immutable validated plan version |
+| `POST` | `/api/analytics/saved-reports/:id/duplicate` | Copy the latest version into a new report |
+| `DELETE` | `/api/analytics/saved-reports/:id` | Delete a report and all versions |
+
+Stored versions include the plan schema version, source, creator and timestamps. A future or invalid
+schema is returned with `compatible: false` and no executable plan. CSV exports are generated from
+the displayed execution result so their headers and raw values match the exact-value table.
+
 ## 6. Products
 
 ### `GET /api/products/performance`

@@ -47,3 +47,26 @@ export const reportRateLimit = createRateLimiter({
   message: 'Too many report requests. Please try again later.',
   windowMs: FIVE_MINUTES_MS,
 });
+
+export const analyticsPlanRateLimit = createRateLimiter({
+  code: 'ANALYTICS_PLAN_RATE_LIMITED',
+  max: 30,
+  message: 'Too many analytics planning requests. Please try again later.',
+  windowMs: FIVE_MINUTES_MS,
+});
+
+export const analyticsExecutionRateLimit = createRateLimiter({
+  code: 'ANALYTICS_EXECUTION_RATE_LIMITED',
+  max: 60,
+  message: 'Too many analytics execution requests. Please try again later.',
+  windowMs: FIVE_MINUTES_MS,
+});
+
+// Refresh runs on every app boot and periodically for each signed-in session,
+// so it needs a far larger budget than credential attempts on a shared IP.
+export const refreshRateLimit = createRateLimiter({
+  code: 'AUTH_REFRESH_RATE_LIMITED',
+  max: 120,
+  message: 'Too many session refresh attempts. Please try again later.',
+  windowMs: FIFTEEN_MINUTES_MS,
+});

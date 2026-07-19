@@ -470,7 +470,37 @@ model WeeklyReport {
   @@unique([businessId, weekStart])
   @@map("weekly_reports")
 }
+
+model SavedReport {
+  id             String               @id @default(uuid())
+  businessId     String               @map("business_id")
+  ownerUserId    String               @map("owner_user_id")
+  name           String               @db.VarChar(80)
+  currentVersion Int                  @default(1) @map("current_version")
+  versions       SavedReportVersion[]
+  createdAt      DateTime             @default(now()) @map("created_at")
+  updatedAt      DateTime             @updatedAt @map("updated_at")
+  @@index([businessId, ownerUserId, updatedAt(sort: Desc)])
+  @@map("saved_reports")
+}
+
+model SavedReportVersion {
+  id              String              @id @default(uuid())
+  reportId        String              @map("report_id")
+  version         Int
+  schemaVersion   Int                 @map("schema_version")
+  plan            Json
+  planSource      AnalyticsPlanSource @map("plan_source")
+  createdByUserId String              @map("created_by_user_id")
+  createdAt       DateTime            @default(now()) @map("created_at")
+  @@unique([reportId, version])
+  @@map("saved_report_versions")
+}
 ```
+
+`SavedReport` is the stable user-owned identity. Each `SavedReportVersion` is an immutable strict
+analytics plan snapshot; renaming a report does not rewrite its history. Service queries always
+scope report ids by both `business_id` and `owner_user_id`.
 
 ---
 

@@ -1,5 +1,6 @@
 export type AppRouteId =
   | 'dashboard'
+  | 'analytics'
   | 'channels'
   | 'imports'
   | 'products'
@@ -22,6 +23,12 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
     label: 'Dashboard',
     path: '/dashboard',
     description: 'Business overview',
+  },
+  {
+    id: 'analytics',
+    label: 'Ask TillTally',
+    path: '/analytics',
+    description: 'Guided business questions',
   },
   {
     id: 'channels',
@@ -61,6 +68,24 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
   },
 ];
 
+const MOBILE_PRIMARY_ROUTE_IDS: AppRouteId[] = ['dashboard', 'analytics', 'products', 'inventory'];
+
+const MOBILE_MORE_ROUTE_IDS: AppRouteId[] = ['imports', 'channels', 'reports', 'workspace'];
+
+export const MOBILE_PRIMARY_NAV_ITEMS = MOBILE_PRIMARY_ROUTE_IDS.map(getNavItem);
+
+export const MOBILE_MORE_NAV_ITEMS = MOBILE_MORE_ROUTE_IDS.map(getNavItem);
+
 export function getRouteTitle(pathname: string): string {
   return APP_NAV_ITEMS.find((item) => pathname.startsWith(item.path))?.label ?? 'Dashboard';
+}
+
+function getNavItem(id: AppRouteId): AppNavItem {
+  const item = APP_NAV_ITEMS.find((candidate) => candidate.id === id);
+
+  if (!item) {
+    throw new Error(`Missing navigation item: ${id}`);
+  }
+
+  return item;
 }

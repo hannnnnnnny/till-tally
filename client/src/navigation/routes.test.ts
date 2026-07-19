@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { APP_NAV_ITEMS, DEFAULT_APP_PATH, getRouteTitle } from './routes';
+import {
+  APP_NAV_ITEMS,
+  DEFAULT_APP_PATH,
+  MOBILE_MORE_NAV_ITEMS,
+  MOBILE_PRIMARY_NAV_ITEMS,
+  getRouteTitle,
+} from './routes';
 
 describe('app navigation routes', () => {
   it('defines the primary shell navigation order', () => {
@@ -11,6 +17,7 @@ describe('app navigation routes', () => {
       })),
       [
         { path: '/dashboard', label: 'Dashboard' },
+        { path: '/analytics', label: 'Ask TillTally' },
         { path: '/channels', label: 'Channels' },
         { path: '/imports', label: 'Imports' },
         { path: '/products', label: 'Products' },
@@ -25,8 +32,23 @@ describe('app navigation routes', () => {
     assert.equal(DEFAULT_APP_PATH, '/dashboard');
   });
 
+  it('keeps the mobile tab bar focused on four core workflows', () => {
+    assert.deepEqual(
+      MOBILE_PRIMARY_NAV_ITEMS.map((item) => item.id),
+      ['dashboard', 'analytics', 'products', 'inventory'],
+    );
+  });
+
+  it('moves secondary mobile destinations into the More menu', () => {
+    assert.deepEqual(
+      MOBILE_MORE_NAV_ITEMS.map((item) => item.id),
+      ['imports', 'channels', 'reports', 'workspace'],
+    );
+  });
+
   it('resolves page titles from route paths', () => {
     assert.equal(getRouteTitle('/dashboard'), 'Dashboard');
+    assert.equal(getRouteTitle('/analytics'), 'Ask TillTally');
     assert.equal(getRouteTitle('/channels'), 'Channels');
     assert.equal(getRouteTitle('/imports'), 'Imports');
     assert.equal(getRouteTitle('/reports/weekly'), 'Reports');
