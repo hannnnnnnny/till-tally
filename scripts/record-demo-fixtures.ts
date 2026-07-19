@@ -161,6 +161,8 @@ async function main(): Promise<void> {
   await recordAnalytics();
   writeFixture('manifest.json', {
     businessId,
+    // The demo account is intentionally public; the auth page pre-fills it.
+    demoCredentials: { email: DEMO_EMAIL, password: DEMO_PASSWORD },
     recordedAt: new Date().toISOString(),
     serverUrl: SERVER_URL,
   });
