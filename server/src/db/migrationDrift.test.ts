@@ -4,6 +4,7 @@ import {
   getKnownMigrationDriftCleanupSql,
   getKnownMigrationDriftRepairSql,
   isKnownBusinessMigrationDrift,
+  isMissingMigrationsTableError,
   isPrismaMissingTableError,
 } from './migrationDrift';
 
@@ -63,5 +64,40 @@ describe('migration drift helpers', () => {
       ),
       true,
     );
+  });
+
+  it('recognizes a fresh database with no migrations table in both error shapes', () => {
+    assert.equal(
+      isMissingMigrationsTableError({
+        code: 'P2021',
+        meta: { table: 'public._prisma_migrations' },
+      }),
+      true,
+    );
+    assert.equal(
+      isMissingMigrationsTableError({
+        code: 'P2010',
+        meta: { code: '42P01', message: 'relation "_prisma_migrations" does not exist' },
+      }),
+      true,
+    );
+  });
+
+  it('does not treat other database failures as a fresh database', () => {
+    assert.equal(
+      isMissingMigrationsTableError({
+        code: 'P2010',
+        meta: { code: '42P01', message: 'relation "orders" does not exist' },
+      }),
+      false,
+    );
+    assert.equal(
+      isMissingMigrationsTableError({
+        code: 'P2010',
+        meta: { code: '28P01', message: 'password authentication failed' },
+      }),
+      false,
+    );
+    assert.equal(isMissingMigrationsTableError(new Error('network down')), false);
   });
 });
