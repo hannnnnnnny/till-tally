@@ -9,5 +9,10 @@
     "isolatedModules": true,
     "moduleDetection": "force"
   },
-  "include": ["playwright.config.ts", "client/e2e/**/*.ts"]
+  "include": [
+    "playwright.config.ts",
+    "playwright.demo.config.ts",
+    "client/e2e/**/*.ts",
+    "client/e2e-demo/**/*.ts"
+  ]
 }

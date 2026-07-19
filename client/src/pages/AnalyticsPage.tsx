@@ -35,6 +35,7 @@ import {
   type SavedAnalyticsReport,
 } from '../analytics/types';
 import { useBusinesses } from '../businesses/BusinessContext';
+import { getDemoInfo } from '../config/demoInfo';
 import { PageHeader } from '../ui/PageLayout';
 import { InlineNotice, StatePanel } from '../ui/StatePanel';
 import { getActionClassName } from '../ui/layout';
@@ -75,6 +76,9 @@ export function AnalyticsPage() {
   } = useBusinesses();
   const [prompt, setPrompt] = useState('');
   const [promptError, setPromptError] = useState<string | null>(null);
+  // In demo mode only the recorded preset questions have full results, so
+  // they replace the generic examples to guide visitors to real output.
+  const examplePrompts = getDemoInfo()?.presetQuestions ?? EXAMPLE_PROMPTS;
   const [status, setStatus] = useState<WorkspaceStatus>('idle');
   const [plan, setPlan] = useState<AnalyticsPlan | null>(null);
   const [planSource, setPlanSource] = useState<'local' | 'provider'>('local');
@@ -675,7 +679,7 @@ export function AnalyticsPage() {
               <div className="border-t border-white/10 px-4 py-4 sm:px-5">
                 <p className="text-xs font-semibold uppercase text-slate-400">Try an example</p>
                 <div className="mt-2 grid gap-2">
-                  {EXAMPLE_PROMPTS.map((example) => (
+                  {examplePrompts.map((example) => (
                     <button
                       key={example}
                       type="button"

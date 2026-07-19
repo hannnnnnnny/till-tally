@@ -1,6 +1,7 @@
-import { type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, type ReactNode } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { getDemoInfo } from '../config/demoInfo';
 import { runtimeConfig } from '../config/runtime';
 import {
   ANALYTICS_METHODS,
@@ -31,8 +32,11 @@ const PREVIEW_PRODUCTS = [
 ];
 
 export function LandingPage() {
-  const { status } = useAuth();
+  const { signIn, status } = useAuth();
+  const navigate = useNavigate();
+  const [demoEntryBusy, setDemoEntryBusy] = useState(false);
   const isAuthenticated = status === 'authenticated';
+  const demoInfo = runtimeConfig.isDemo ? getDemoInfo() : null;
   const primaryTarget = isAuthenticated
     ? '/dashboard'
     : runtimeConfig.isStaticPreview
@@ -40,13 +44,39 @@ export function LandingPage() {
       : '/auth';
   const primaryLabel = isAuthenticated
     ? 'Open dashboard'
-    : runtimeConfig.isStaticPreview
-      ? 'Explore the preview'
-      : 'Try demo login';
+    : demoInfo
+      ? 'Try the live demo'
+      : runtimeConfig.isStaticPreview
+        ? 'Explore the preview'
+        : 'Try demo login';
+  const enterDemo =
+    demoInfo && !isAuthenticated
+      ? async () => {
+          if (demoEntryBusy) return;
+          setDemoEntryBusy(true);
+
+          try {
+            await signIn('login', {
+              email: demoInfo.credentials.email,
+              password: demoInfo.credentials.password,
+            });
+            navigate('/dashboard');
+          } catch {
+            // The pre-filled auth page is the fallback entrance.
+            navigate('/auth');
+          } finally {
+            setDemoEntryBusy(false);
+          }
+        }
+      : undefined;
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-slate-50">
-      <LandingNav primaryTarget={primaryTarget} primaryLabel={primaryLabel} />
+      <LandingNav
+        primaryTarget={primaryTarget}
+        primaryLabel={primaryLabel}
+        onPrimaryAction={enterDemo}
+      />
 
       <section className="relative isolate min-h-[88dvh] overflow-hidden bg-slate-50 dark:bg-slate-950">
         <div className="absolute inset-0 bg-slate-50/90 dark:bg-slate-950/90" />
@@ -77,6 +107,7 @@ export function LandingPage() {
             <div className="mt-8 flex max-w-sm flex-col gap-3 sm:max-w-none sm:flex-row">
               <PrimaryAction
                 target={primaryTarget}
+                onActivate={enterDemo}
                 className="inline-flex h-11 w-full items-center justify-center rounded-md bg-blue-700 px-5 text-sm font-semibold text-white shadow-sm shadow-blue-900/10 transition hover:bg-blue-800 active:translate-y-px sm:w-auto"
               >
                 {primaryLabel}
@@ -120,9 +151,11 @@ export function LandingPage() {
 function LandingNav({
   primaryTarget,
   primaryLabel,
+  onPrimaryAction,
 }: {
   primaryTarget: string;
   primaryLabel: string;
+  onPrimaryAction?: () => void;
 }) {
   return (
     <header className="fixed inset-x-0 top-0 z-30 border-b border-slate-200/80 bg-white/90 backdrop-blur dark:border-slate-800/80 dark:bg-slate-950/85">
@@ -154,6 +187,7 @@ function LandingNav({
 
         <PrimaryAction
           target={primaryTarget}
+          onActivate={onPrimaryAction}
           className="hidden h-10 shrink-0 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 active:translate-y-px dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200 sm:inline-flex"
         >
           {primaryLabel}
@@ -375,11 +409,21 @@ function PrimaryAction({
   target,
   className,
   children,
+  onActivate,
 }: {
   target: string;
   className: string;
   children: ReactNode;
+  onActivate?: () => void;
 }) {
+  if (onActivate) {
+    return (
+      <button type="button" className={className} onClick={onActivate}>
+        {children}
+      </button>
+    );
+  }
+
   if (target.startsWith('#')) {
     return (
       <SectionAction target={target} className={className}>

@@ -7,6 +7,7 @@ import { BusinessProvider } from './businesses/BusinessContext';
 import { runtimeConfig } from './config/runtime';
 import { LandingPage } from './landing/LandingPage';
 import { AppShell } from './layout/AppShell';
+import { DemoBanner } from './layout/DemoBanner';
 import { DEFAULT_APP_PATH } from './navigation/routes';
 import { ChannelsPage } from './pages/ChannelsPage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -26,6 +27,7 @@ export default function App() {
 
   return (
     <Router>
+      <DemoBanner />
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/auth" element={<AuthRoute />} />

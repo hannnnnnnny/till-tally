@@ -23,6 +23,25 @@ describe('runtime configuration', () => {
     assert.equal(config.routerMode, 'hash');
   });
 
+  it('enables the full app with a hash router and demo data in demo mode', () => {
+    const config = createRuntimeConfig({
+      BASE_URL: '/till-tally/',
+      VITE_DEMO_MODE: 'true',
+    });
+
+    assert.equal(config.isDemo, true);
+    assert.equal(config.isStaticPreview, false);
+    assert.equal(config.apiAvailable, true);
+    assert.equal(config.routerMode, 'hash');
+  });
+
+  it('keeps demo mode off unless the flag is exactly "true"', () => {
+    const config = createRuntimeConfig({ VITE_DEMO_MODE: '1' });
+
+    assert.equal(config.isDemo, false);
+    assert.equal(config.routerMode, 'browser');
+  });
+
   it('resolves public assets beneath the configured Vite base path', () => {
     const config = createRuntimeConfig({ BASE_URL: '/till-tally' });
 

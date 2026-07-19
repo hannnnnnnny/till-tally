@@ -33,3 +33,6 @@ docs/superpowers/
 .impeccable/
 .playwright-cli/
 output/
+
+# Generated demo fixtures — recorded at deploy time
+client/src/demo/fixtures/
