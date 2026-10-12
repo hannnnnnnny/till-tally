@@ -16,6 +16,7 @@ describe('CI hygiene', () => {
       'npm test --workspaces --if-present',
       'npm run test:integration -w server',
       'npm run test:e2e',
+      'npm run test:e2e:fullstack',
       'npm run build',
     ]) {
       assert.match(workflow, new RegExp(escapeRegExp(command)));

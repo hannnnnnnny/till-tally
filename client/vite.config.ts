@@ -7,9 +7,9 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
-    // Proxy API calls to the Express server during local development.
+    // Proxy API calls to the Express server; `vite preview` reuses this for full-stack E2E.
     proxy: {
-      '/api': 'http://localhost:4000',
+      '/api': process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:4000',
     },
   },
 });

@@ -12,7 +12,9 @@
   "include": [
     "playwright.config.ts",
     "playwright.demo.config.ts",
+    "playwright.fullstack.config.ts",
     "client/e2e/**/*.ts",
-    "client/e2e-demo/**/*.ts"
+    "client/e2e-demo/**/*.ts",
+    "client/e2e-fullstack/**/*.ts"
   ]
 }

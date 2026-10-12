@@ -94,5 +94,11 @@ jobs:
       - name: Browser test
         run: npm run test:e2e
 
+      - name: Full-stack browser test
+        # Real API + Postgres, no mocks: import CSV -> KPIs -> planner -> saved report.
+        run: npm run test:e2e:fullstack
+        env:
+          E2E_DATABASE_URL: postgresql://tilltally:tilltally@localhost:5432/tilltally?schema=public
+
       - name: Build
         run: npm run build
