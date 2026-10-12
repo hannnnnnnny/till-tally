@@ -189,6 +189,12 @@ docker compose up -d --build
 | API health check | <http://localhost:4000/api/health> |
 | PostgreSQL | `localhost:5432` |
 
+Host ports are configurable with `POSTGRES_PORT`, `SERVER_PORT` and `CLIENT_PORT`, and container names follow the Compose project, so a second checkout can run alongside the first:
+
+```bash
+POSTGRES_PORT=55432 SERVER_PORT=4100 CLIENT_PORT=8081 docker compose -p tilltally-review up -d --build
+```
+
 To stop the stack while retaining database data:
 
 ```bash
