@@ -367,7 +367,9 @@ export function CsvImportPanel() {
     setSelectedJobDetail(null);
 
     try {
-      const mappedFile = createMappedCsvFile(csvPreview, mode, columnMapping);
+      const mappedFile = createMappedCsvFile(csvPreview, mode, columnMapping, {
+        includedRowIndexes: preflightValidation?.importableRowIndexes,
+      });
       const result = await uploadImportCsv(mode, mappedFile, activeBusinessHeaders);
       const history = await fetchImportJobs(activeBusinessHeaders);
 
@@ -510,7 +512,7 @@ export function CsvImportPanel() {
         </InlineNotice>
       )}
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,0.95fr)_minmax(360px,1.05fr)]">
+      <div className="mt-6 grid gap-6 *:min-w-0 xl:grid-cols-[minmax(0,0.95fr)_minmax(360px,1.05fr)]">
         <div className="space-y-6">
           <CsvUploadBox
             activeTemplateId={activeTemplateId}
@@ -1163,7 +1165,12 @@ function MappedPreviewTable({ mapping, mode, preview }: MappedPreviewTableProps)
         ) : preview.previewRows.length === 0 ? (
           <div className="bg-slate-50 px-3 py-3 text-sm text-slate-600">No data rows found.</div>
         ) : (
-          <div className="max-h-72 overflow-auto">
+          <div
+            className="max-h-72 overflow-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+            role="region"
+            aria-label="Mapped preview rows"
+            tabIndex={0}
+          >
             <table className="min-w-max divide-y divide-slate-200 text-left text-xs">
               <thead className="sticky top-0 bg-slate-50">
                 <tr>
@@ -1174,7 +1181,7 @@ function MappedPreviewTable({ mapping, mode, preview }: MappedPreviewTableProps)
                       className="max-w-48 px-3 py-2 font-semibold text-slate-600"
                     >
                       <span className="block truncate">{field.key}</span>
-                      <span className="mt-0.5 block truncate font-normal text-slate-400">
+                      <span className="mt-0.5 block truncate font-normal text-slate-500">
                         {mapping[field.key]}
                       </span>
                     </th>
@@ -1280,7 +1287,12 @@ function PreflightValidationPanel({
 
       {visibleIssues.length > 0 && (
         <div className="mt-4 overflow-hidden rounded-md border border-slate-200 bg-white">
-          <div className="max-h-72 overflow-auto">
+          <div
+            className="max-h-72 overflow-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+            role="region"
+            aria-label="Row validation issues"
+            tabIndex={0}
+          >
             <table className="min-w-full divide-y divide-slate-200 text-left text-xs">
               <thead className="sticky top-0 bg-slate-50">
                 <tr>

@@ -116,7 +116,7 @@ export function AppShell() {
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
-          <p className="px-3 text-xs font-semibold text-slate-400">Workspace</p>
+          <p className="px-3 text-xs font-semibold text-slate-500">Workspace</p>
           <nav className="mt-2 space-y-1" aria-label="Primary">
             {APP_NAV_ITEMS.map((item) => {
               const Icon = NAV_ICONS[item.id];

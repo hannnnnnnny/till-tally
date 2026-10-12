@@ -93,12 +93,16 @@ export function mergeSuggestionsIntoMapping(
   currentMapping: ColumnMapping,
   suggestions: MappingSuggestion[],
 ): ColumnMapping {
-  return {
-    ...currentMapping,
-    ...Object.fromEntries(
-      suggestions.map((suggestion) => [suggestion.field.key, suggestion.sourceHeader]),
-    ),
-  };
+  const suggestedMapping = Object.fromEntries(
+    suggestions.map((suggestion) => [suggestion.field.key, suggestion.sourceHeader]),
+  );
+  const suggestedHeaders = new Set(Object.values(suggestedMapping));
+  // A source column can feed only one field, so manual picks of a now-suggested header are dropped.
+  const nonConflictingMapping = Object.fromEntries(
+    Object.entries(currentMapping).filter(([, header]) => !suggestedHeaders.has(header)),
+  );
+
+  return { ...nonConflictingMapping, ...suggestedMapping };
 }
 
 function getBestCandidate(
@@ -176,7 +180,13 @@ function scoreSampleValues(fieldKey: string, previewRows: string[][], columnInde
     return 0;
   }
 
-  const matchRate = getSampleMatchRate(sampleValues, getValueMatcher(fieldKey));
+  const matcher = getValueMatcher(fieldKey);
+
+  if (!matcher) {
+    return 0;
+  }
+
+  const matchRate = getSampleMatchRate(sampleValues, matcher);
 
   return Math.round(matchRate * 35);
 }
@@ -185,7 +195,8 @@ function getSampleMatchRate(values: string[], matcher: (value: string) => boolea
   return values.filter(matcher).length / values.length;
 }
 
-function getValueMatcher(fieldKey: string): (value: string) => boolean {
+// Free-text fields return null: any non-empty value would "match", so only typed values count.
+function getValueMatcher(fieldKey: string): ((value: string) => boolean) | null {
   if (fieldKey.includes('date') || fieldKey.endsWith('_at')) {
     return looksLikeDate;
   }
@@ -208,7 +219,7 @@ function getValueMatcher(fieldKey: string): (value: string) => boolean {
     return looksLikeChannel;
   }
 
-  return (value) => value.trim().length > 0;
+  return null;
 }
 
 function looksLikeDate(value: string): boolean {
