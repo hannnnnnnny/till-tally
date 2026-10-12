@@ -227,6 +227,7 @@ Model configuration stays on the server and is never exposed to the React client
 | `npm run dev:server` | Start the Express API with hot reload |
 | `npm run build` | Build shared contracts, client and server |
 | `npm run db:seed` | Seed the demonstration workspace |
+| `npm run prisma:generate` | Regenerate the Prisma client after pulling schema changes (`npm install` does this on a fresh clone) |
 | `npm run typecheck` | Type-check all workspaces and E2E tests |
 | `npm run lint` | Run ESLint |
 | `npm run format:check` | Verify Prettier formatting |
