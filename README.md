@@ -159,7 +159,7 @@ docker compose ps
 npm run db:seed
 ```
 
-The seed creates the demo user, workspace, products, orders, inventory snapshots and import history from `sample-data/*.csv`.
+The seed creates the demo user and workspace with a deterministic 12-week dataset generated relative to the seeding day: about 160 orders across five channels, weekly inventory snapshots, and products tuned so every inventory-risk category (low stock, stockout risk, slow mover, dead stock, overstock) appears. It also generates the weekly report for the last complete week. The files in `sample-data/` are example CSVs for trying the import workflow.
 
 Production seeding is blocked unless `ALLOW_PRODUCTION_SEED=true` is deliberately enabled for a one-off reset.
 

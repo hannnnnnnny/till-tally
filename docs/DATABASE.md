@@ -554,7 +554,7 @@ This prevents IDOR (insecure direct object reference): even with a valid token, 
 
 ## 10. Seed & Sample Data
 
-`sample-data/orders.csv`, `order_items.csv`, `products.csv` (see [`TT.md`](../TT.md) §17) drive a `prisma db seed` script that creates a demo user + business so the dashboard is populated for screenshots and the live demo.
+`npm run db:seed` (`server/prisma/seed.ts`) creates a demo user and business from `server/src/db/demoDataset.ts`: a deterministic 12-week dataset generated relative to the seeding day, so 30-day dashboards, inventory-risk rules and the last complete weekly report always have data. `sample-data/*.csv` are example files for the import workflow and are not used by the seed.
 
 ---
 
