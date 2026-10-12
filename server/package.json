@@ -7,7 +7,7 @@
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
     "build": "npm run clean && tsc -p tsconfig.build.json",
     "start": "node dist/app.js",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.seed.json",
     "test": "tsx --test \"src/**/*.test.ts\"",
     "test:integration": "tsx --test --test-concurrency=1 \"src/integration/**/*.itest.ts\"",
     "test:analytics-evals": "tsx src/analytics/analyticsEvaluationCli.ts",
