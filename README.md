@@ -153,9 +153,10 @@ docker compose up -d db
 docker compose ps
 ```
 
-### Seed the Demo Data
+### Apply Migrations and Seed the Demo Data
 
 ```bash
+npm run db:migrate
 npm run db:seed
 ```
 
@@ -178,6 +179,8 @@ npm run dev:client
 | API health check | <http://localhost:4000/api/health> |
 
 ### Run the Full Stack with Docker
+
+The API container does not run migrations on start, so apply migrations and seed first (steps above) when using a fresh database volume.
 
 ```bash
 docker compose up -d --build
@@ -226,6 +229,7 @@ Model configuration stays on the server and is never exposed to the React client
 | `npm run dev:client` | Start the Vite development server |
 | `npm run dev:server` | Start the Express API with hot reload |
 | `npm run build` | Build shared contracts, client and server |
+| `npm run db:migrate` | Apply Prisma migrations to the database in `server/.env` |
 | `npm run db:seed` | Seed the demonstration workspace |
 | `npm run prisma:generate` | Regenerate the Prisma client after pulling schema changes (`npm install` does this on a fresh clone) |
 | `npm run typecheck` | Type-check all workspaces and E2E tests |
