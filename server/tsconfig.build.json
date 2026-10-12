@@ -2,6 +2,7 @@
   "extends": "./tsconfig.json",
   "exclude": [
     "src/**/*.test.ts",
+    "src/integration/**",
     "src/analytics/analyticsEvaluation.ts",
     "src/analytics/analyticsEvaluationCli.ts"
   ]

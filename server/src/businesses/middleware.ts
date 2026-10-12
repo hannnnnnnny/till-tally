@@ -36,46 +36,59 @@ function getBusinessIdFromRequest(req: Request): string | null {
   return null;
 }
 
-export async function requireBusinessAccess(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> {
-  if (!req.userId) {
-    res.status(401).json({
-      error: {
-        code: 'UNAUTHENTICATED',
-        message: 'Missing authenticated user',
-      },
-    });
-    return;
-  }
+export type FindBusinessMembership = (
+  businessId: string,
+  userId: string,
+) => Promise<{ role: Role } | null>;
 
-  const businessId = getBusinessIdFromRequest(req);
-
-  if (!businessId) {
-    sendBusinessAccessError(res, 'Missing business context');
-    return;
-  }
-
-  const membership = await prisma.businessMember.findUnique({
-    where: {
-      businessId_userId: {
-        businessId,
-        userId: req.userId,
-      },
-    },
-    select: {
-      role: true,
-    },
+const findMembershipWithPrisma: FindBusinessMembership = (businessId, userId) =>
+  prisma.businessMember.findUnique({
+    where: { businessId_userId: { businessId, userId } },
+    select: { role: true },
   });
 
-  if (!membership) {
-    sendBusinessAccessError(res, 'You do not have access to this business');
-    return;
-  }
+export function createRequireBusinessAccess(findMembership: FindBusinessMembership) {
+  return async function requireBusinessAccess(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    if (!req.userId) {
+      res.status(401).json({
+        error: {
+          code: 'UNAUTHENTICATED',
+          message: 'Missing authenticated user',
+        },
+      });
+      return;
+    }
 
-  req.businessId = businessId;
-  req.businessRole = membership.role;
-  next();
+    const businessId = getBusinessIdFromRequest(req);
+
+    if (!businessId) {
+      sendBusinessAccessError(res, 'Missing business context');
+      return;
+    }
+
+    let membership: { role: Role } | null;
+
+    try {
+      membership = await findMembership(businessId, req.userId);
+    } catch (error) {
+      // Express 4 does not catch rejected promises, so forward to the error handler explicitly.
+      next(error);
+      return;
+    }
+
+    if (!membership) {
+      sendBusinessAccessError(res, 'You do not have access to this business');
+      return;
+    }
+
+    req.businessId = businessId;
+    req.businessRole = membership.role;
+    next();
+  };
 }
+
+export const requireBusinessAccess = createRequireBusinessAccess(findMembershipWithPrisma);

@@ -225,10 +225,11 @@ Model configuration stays on the server and is never exposed to the React client
 | `npm run lint` | Run ESLint |
 | `npm run format:check` | Verify Prettier formatting |
 | `npm test --workspaces --if-present` | Run workspace test suites |
+| `npm run test:integration -w server` | Run API integration tests against a disposable PostgreSQL database (`INTEGRATION_DATABASE_URL`; wipes all tables) |
 | `npm run test:e2e` | Run Playwright browser tests |
 | `npm run test:analytics-evals -w server` | Run analytics-planner evaluations |
 
-The CI workflow runs formatting, Prisma validation, linting, type-checking, analytics evaluations, unit/integration tests, Playwright tests and production builds on pushes and pull requests to `main`.
+The CI workflow runs formatting, Prisma validation, linting, type-checking, analytics evaluations, unit tests, PostgreSQL-backed integration tests (imports, KPIs and workspace isolation), Playwright tests and production builds on pushes and pull requests to `main`.
 
 ## Monorepo Structure
 
