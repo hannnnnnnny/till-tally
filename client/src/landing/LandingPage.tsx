@@ -262,8 +262,8 @@ function MethodsSection() {
             Analytics that map to real store decisions.
           </h2>
           <p className="mt-4 text-base leading-7 text-slate-600 dark:text-slate-300">
-            The backend services turn orders, products, costs, and inventory snapshots into
-            explainable retail signals.
+            The backend services turn orders, products, costs, and stock levels into explainable
+            retail signals.
           </p>
         </div>
 

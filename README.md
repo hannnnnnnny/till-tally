@@ -276,7 +276,7 @@ till-tally/
 
 ## Product Scope
 
-TillTally is an analytics and decision-support tool, not a point-of-sale system or accounting platform. Imported figures depend on the completeness and accuracy of the source CSV files. Inventory warnings and suggested actions should be reviewed by the business operator before use.
+TillTally is an analytics and decision-support tool, not a point-of-sale system or accounting platform. CSV imports cover orders (optionally with line items) and products; stock levels come from the products file's `current_stock` column. Inventory snapshot files can be previewed in the importer but not imported. Imported figures depend on the completeness and accuracy of the source CSV files. Inventory warnings and suggested actions should be reviewed by the business operator before use.
 
 ## Roadmap
 
