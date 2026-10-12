@@ -52,7 +52,7 @@ Small retailers often have useful sales and inventory data but lack the time, sp
 | Sales analysis | Time-series trends and channel-performance breakdowns |
 | Product performance | Product rankings, contribution measures and actionable status labels |
 | Inventory risk | Low-stock, stockout, slow-mover, dead-stock and overstock detection |
-| CSV imports | Preview, column mapping, aliases, validation, correction guidance and import history |
+| CSV imports | Preview, column mapping, aliases, row validation, inline row correction and import history |
 | Reporting | Weekly summaries with top products, warnings and suggested actions |
 | Analytics planner | Natural-language questions converted into validated analytics plans |
 | Saved analysis | Persisted reports and auditable analytics activity |

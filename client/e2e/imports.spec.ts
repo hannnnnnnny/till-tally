@@ -90,6 +90,57 @@ test('previews, maps aliases, reviews rows and imports only valid rows at 375px'
   await expectNoHorizontalOverflow(page);
 });
 
+test('corrects a failed row inline and imports the corrected value at 375px', async ({ page }) => {
+  const state: ImportState = { uploadedCsv: null, failUpload: false };
+  await mockImportsApi(page, state);
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto('/imports');
+
+  await page.getByRole('button', { name: 'Products', exact: true }).click();
+  await chooseCsv(page, PRODUCTS_WITH_BAD_ROW);
+  await page.getByRole('button', { name: 'Fix row 3' }).click();
+
+  const form = page.getByRole('form', { name: 'Correct row 3' });
+  const costInput = form.getByLabel('Cost price');
+  await expect(costInput).toHaveValue('not-a-price');
+  await expect(costInput).toHaveAttribute('aria-invalid', 'true');
+  await expect(costInput).toHaveAccessibleDescription('Value must be a number');
+  await expectAccessible(page, 'row correction form');
+  await expectNoHorizontalOverflow(page);
+
+  await costInput.fill('10.00');
+  await form.getByRole('button', { name: 'Save correction' }).click();
+
+  await expect(page.getByText('All failed rows have been corrected.')).toBeVisible();
+  await expect(page.getByText('All mapped rows passed preflight validation.')).toBeVisible();
+  await page.getByRole('button', { name: 'Confirm import' }).click();
+
+  await expect(page.getByText('Import result')).toBeVisible();
+  expect(state.uploadedCsv).toContain('HM-002,Mug Set,10.00,20');
+  expect(state.uploadedCsv).not.toContain('not-a-price');
+});
+
+test('asks for confirmation before undoing corrections', async ({ page }) => {
+  await mockImportsApi(page, { uploadedCsv: null, failUpload: false });
+  await page.goto('/imports');
+
+  await page.getByRole('button', { name: 'Products', exact: true }).click();
+  await chooseCsv(page, PRODUCTS_WITH_BAD_ROW);
+  await page.getByRole('button', { name: 'Fix row 3' }).click();
+  await page.getByRole('form', { name: 'Correct row 3' }).getByLabel('Cost price').fill('10.00');
+  await page.getByRole('button', { name: 'Save correction' }).click();
+
+  await page.getByRole('button', { name: 'Undo corrections (1)' }).click();
+  await expect(page.getByText('Undo 1 corrected row?')).toBeVisible();
+  await page.getByRole('button', { name: 'Keep' }).click();
+  await expect(page.getByText('All failed rows have been corrected.')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Undo corrections (1)' }).click();
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(page.getByText('1 failed rows need a decision before import.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Fix row 3' })).toBeVisible();
+});
+
 test('shows an error state when the import request fails', async ({ page }) => {
   const state: ImportState = { uploadedCsv: null, failUpload: true };
   await mockImportsApi(page, state);
