@@ -9,6 +9,7 @@ COPY package.json package-lock.json ./
 COPY server/package.json ./server/
 COPY client/package.json ./client/
 COPY packages/analytics-contracts/package.json ./packages/analytics-contracts/
+COPY scripts/generate-prisma-client.mjs ./scripts/
 RUN npm ci
 # Compile the server (tsc -> server/dist).
 COPY tsconfig.base.json ./
@@ -28,6 +29,7 @@ COPY package.json package-lock.json ./
 COPY server/package.json ./server/
 COPY client/package.json ./client/
 COPY packages/analytics-contracts/package.json ./packages/analytics-contracts/
+COPY scripts/generate-prisma-client.mjs ./scripts/
 RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=build /app/packages/analytics-contracts/dist ./packages/analytics-contracts/dist
 COPY --from=build /app/server/node_modules/.prisma ./server/node_modules/.prisma
