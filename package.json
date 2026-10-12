@@ -10,6 +10,7 @@
     "packages/*"
   ],
   "scripts": {
+    "postinstall": "node scripts/generate-prisma-client.mjs",
     "dev:client": "npm run dev -w client",
     "dev:server": "npm run dev -w server",
     "build": "npm run build -w @till-tally/analytics-contracts && npm run build -w client && npm run build -w server",
