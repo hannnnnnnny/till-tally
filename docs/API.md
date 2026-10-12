@@ -1,7 +1,7 @@
 # TillTally — API Design
 
-> Status: Design draft (MVP) · Style: REST / JSON · Auth: JWT (Bearer)
-> Source of truth for scope: [`TT.md`](../TT.md) §16. This document refines those endpoints into request/response contracts, error handling and security rules. Pairs with [`DATABASE.md`](./DATABASE.md).
+> Style: REST / JSON · Auth: JWT (Bearer) · Describes the implemented API in [`server/src`](../server/src).
+> Request/response contracts, error handling and security rules. Pairs with [`DATABASE.md`](./DATABASE.md).
 
 ---
 
@@ -127,12 +127,12 @@ Single business. `403 NO_BUSINESS_ACCESS` if not a member; `404` if not found.
 
 ## 4. CSV Import
 
-Uploads are `multipart/form-data` with a `file` field. Server validates **type** (`text/csv`), **size** (≤ 25 MB default), renames stored file, then parses rows. Each upload creates an `import_job`. See [`TT.md`](../TT.md) §10.3 / §23 and [`DATABASE.md`](./DATABASE.md) §5.8.
+Uploads are `multipart/form-data` with a `file` field. Server validates **type** (`text/csv`), **size** (≤ 25 MB default), renames stored file, then parses rows. Each upload creates an `import_job`. See [`uploadMiddleware.ts`](../server/src/imports/uploadMiddleware.ts) and [`DATABASE.md`](./DATABASE.md) §5.8.
 
 Processing model: parse → validate each row → insert valid rows → record failed rows in `error_summary`. For MVP this can run synchronously and return the finished job; large files may move to async (`status: PROCESSING`, poll the job).
 
 ### `POST /api/import/orders`
-`multipart/form-data`: `file` = orders CSV (header per [`TT.md`](../TT.md) §17.1, optionally with order-item columns per §17.2).
+`multipart/form-data`: `file` = orders CSV (see [`sample-data/orders.csv`](../sample-data/orders.csv); optionally with the order-item columns in [`orders_with_items.csv`](../sample-data/orders_with_items.csv)).
 ```jsonc
 // 201 Created (job result)
 {
@@ -153,7 +153,7 @@ Processing model: parse → validate each row → insert valid rows → record f
 ```
 
 ### `POST /api/import/products`
-`multipart/form-data`: `file` = products CSV (header per [`TT.md`](../TT.md) §17.3). Same response shape; upserts by `(businessId, sku)`. Duplicate SKUs within the same CSV are skipped with a warning to avoid ambiguous overwrites.
+`multipart/form-data`: `file` = products CSV (see [`sample-data/products.csv`](../sample-data/products.csv)). Same response shape; upserts by `(businessId, sku)`. Duplicate SKUs within the same CSV are skipped with a warning to avoid ambiguous overwrites.
 
 Common import validations (see [`DATABASE.md`](./DATABASE.md) §9):
 required columns present · valid date · numeric prices ≥ 0 · `quantity > 0` · SKU match (warn if missing) · duplicate order number (skip + warn) · unknown channel → `OTHER` + warn.
@@ -185,7 +185,7 @@ Full job incl. structured `errorSummary` so the frontend can render/download an 
 
 ## 5. Dashboard
 
-All dashboard endpoints accept an optional date range `?from=YYYY-MM-DD&to=YYYY-MM-DD` (default: last 30 days). KPI math per [`TT.md`](../TT.md) §11.
+All dashboard endpoints accept an optional date range `?from=YYYY-MM-DD&to=YYYY-MM-DD` (default: last 30 days). KPI math lives in [`summaryService.ts`](../server/src/dashboard/summaryService.ts).
 
 ### `GET /api/dashboard/summary`
 Headline KPIs (the dashboard cards).
@@ -216,7 +216,7 @@ Time series for the sales-trend chart. `?interval=day|week` (default `day`).
 ```
 
 ### `GET /api/dashboard/channel-breakdown`
-Per-channel aggregation (channel analysis, [`TT.md`](../TT.md) §10.7).
+Per-channel aggregation (channel analysis, [`channelBreakdownService.ts`](../server/src/dashboard/channelBreakdownService.ts)).
 ```jsonc
 // 200 OK
 { "channels": [
@@ -326,7 +326,7 @@ the displayed execution result so their headers and raw values match the exact-v
 ## 6. Products
 
 ### `GET /api/products/performance`
-Product performance table ([`TT.md`](../TT.md) §10.5). Supports `?search=`, `?category=`, `?status=`, `?sort=revenue|unitsSold|grossMargin&order=desc`, pagination, and date range.
+Product performance table ([`productPerformanceService.ts`](../server/src/products/productPerformanceService.ts)). Supports `?search=`, `?category=`, `?status=`, `?sort=revenue|unitsSold|grossMargin&order=desc`, pagination, and date range.
 ```jsonc
 // 200 OK
 {
@@ -345,9 +345,9 @@ Product performance table ([`TT.md`](../TT.md) §10.5). Supports `?search=`, `?c
   "meta": { "page": 1, "pageSize": 25, "total": 120, "totalPages": 5 }
 }
 ```
-`labels` are computed by the analytics service from the rules in [`TT.md`](../TT.md) §21 (Best Seller, High Margin, Low Stock, Slow Mover, Dead Stock, Discount Candidate, Reorder Soon).
+`labels` are computed by the analytics service from the rules in [`productPerformanceService.ts`](../server/src/products/productPerformanceService.ts) (Best Seller, High Margin, Low Stock, Slow Mover, Dead Stock, Discount Candidate, Reorder Soon).
 
-ABC fields are computed from ranked revenue contribution per [`TT.md`](../TT.md) section 11.4: A products cover roughly the first 80% of revenue, B products the next 15%, and C products the remaining long tail.
+ABC fields are computed from ranked revenue contribution : A products cover roughly the first 80% of revenue, B products the next 15%, and C products the remaining long tail.
 
 ### `GET /api/products/:id`
 Single product detail incl. recent sales and stock history. `404` if not in active business.
@@ -356,7 +356,7 @@ Single product detail incl. recent sales and stock history. `404` if not in acti
 
 ## 7. Inventory Insights
 
-Inventory-risk logic per [`TT.md`](../TT.md) §11.5 / §11.6. Key formulas:
+Inventory-risk logic lives in [`inventoryRiskService.ts`](../server/src/inventory/inventoryRiskService.ts). Key formulas:
 ```text
 dailySalesRate = unitsSoldLast30Days / 30
 daysOfStockLeft = currentStock / dailySalesRate
@@ -455,7 +455,7 @@ Query parameters:
 
 ## 8. Reports
 
-Weekly business report ([`TT.md`](../TT.md) §10.8, [`DATABASE.md`](./DATABASE.md) §5.9).
+Weekly business report ([`weeklyReportService.ts`](../server/src/reports/weeklyReportService.ts), [`DATABASE.md`](./DATABASE.md) §5.9).
 
 ### `GET /api/reports/weekly`
 Latest (or `?weekStart=YYYY-MM-DD`) report for the active business.
@@ -505,6 +505,18 @@ Generates (or regenerates, idempotent per `(business, weekStart)`) the report fo
 | GET | `/api/inventory/slow-movers` | ✓ + biz | Slow-mover list |
 | GET | `/api/reports/weekly` | ✓ + biz | Latest weekly report |
 | POST | `/api/reports/weekly/generate` | ✓ + biz | Generate weekly report |
+| POST | `/api/analytics/plan` | ✓ + biz | Turn a question into a validated plan |
+| POST | `/api/analytics/preview` | ✓ + biz | Describe a plan without running it |
+| POST | `/api/analytics/execute` | ✓ + biz | Run a validated plan |
+| GET | `/api/analytics/saved-reports` | ✓ + biz | List saved reports |
+| POST | `/api/analytics/saved-reports` | ✓ + biz | Save a report (version 1) |
+| GET | `/api/analytics/saved-reports/:id` | ✓ + biz | Saved report detail |
+| PATCH | `/api/analytics/saved-reports/:id` | ✓ + biz | Rename a saved report |
+| POST | `/api/analytics/saved-reports/:id/versions` | ✓ + biz | Add a plan version |
+| POST | `/api/analytics/saved-reports/:id/duplicate` | ✓ + biz | Duplicate a saved report |
+| DELETE | `/api/analytics/saved-reports/:id` | ✓ + biz | Delete a saved report |
+| GET | `/api/health` | — | Liveness |
+| GET | `/api/health/ready` | — | Readiness (database reachable) |
 
 > "✓ + biz" = requires a valid access token **and** membership of the active business (`X-Business-Id`).
 
@@ -512,7 +524,7 @@ Generates (or regenerates, idempotent per `(business, weekStart)`) the report fo
 
 ## 10. Security & Hardening
 
-Aligned with [`TT.md`](../TT.md) §22 and global engineering security rules:
+Security rules applied across the API:
 
 - **Authentication:** JWT; passwords hashed (bcrypt/argon2); secrets from env vars only — never hardcoded.
 - **Authorisation / data isolation:** every business-scoped query filters by a verified `businessId`; membership checked on each request to prevent IDOR.
@@ -528,4 +540,4 @@ Aligned with [`TT.md`](../TT.md) §22 and global engineering security rules:
 
 ## 11. Out of Scope (MVP)
 
-Per [`TT.md`](../TT.md) §8 / §26: Shopify/Xero OAuth, real-time sync, payments, AI summaries, PDF/email export, multi-user RBAC endpoints. These will extend the API later (e.g. `/api/integrations/shopify`, `/api/reports/weekly/export`).
+Shopify/Xero OAuth, real-time sync, payments, AI summaries, PDF/email export, multi-user RBAC endpoints. These will extend the API later (e.g. `/api/integrations/shopify`, `/api/reports/weekly/export`).

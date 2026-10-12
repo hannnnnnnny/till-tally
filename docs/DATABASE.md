@@ -1,7 +1,7 @@
 # TillTally — Database Design
 
 > Status: Design draft (MVP) · Database: PostgreSQL 15+ · ORM: Prisma
-> Source of truth for scope: [`TT.md`](../TT.md) §15. This document refines those tables into a production-ready relational schema.
+> Describes the implemented schema in [`server/prisma/schema.prisma`](../server/prisma/schema.prisma).
 
 ---
 
@@ -10,7 +10,7 @@
 1. **Business-level data isolation** — every row of business data is scoped to a `business_id`. A user can only read/write data for businesses they belong to. This is the single most important invariant.
 2. **Analytics-friendly** — orders, order items and inventory snapshots are modelled so that KPI, margin, ranking and inventory-risk queries are simple and indexable.
 3. **Import traceability** — every imported row can be traced back to the `import_job` that created it, so a bad import can be diagnosed (and later rolled back).
-4. **Privacy-aware** — no customer PII (names, email, phone, address, payment). At most a coarse `customer_region` string for channel/region analysis. See [`TT.md`](../TT.md) §6.3 / §22.
+4. **Privacy-aware** — no customer PII (names, email, phone, address, payment). At most a coarse `customer_region` string for channel/region analysis.
 5. **Money is never a float** — all monetary and quantity values use `Decimal` (PostgreSQL `numeric`) to avoid rounding errors in margin calculations.
 
 ---
@@ -133,7 +133,7 @@ ImportStatus  : PENDING | PROCESSING | COMPLETED | COMPLETED_WITH_WARNINGS | FAI
 | `updated_at` | timestamptz | not null | |
 
 **Indexes:** unique on `lower(email)`.
-**Security:** `password_hash` is never returned by any API. See [`TT.md`](../TT.md) §22.
+**Security:** `password_hash` is never returned by any API.
 
 ---
 
@@ -269,7 +269,7 @@ Point-in-time stock levels, used for stock-trend and days-of-stock-left calculat
 
 ### 5.8 `import_jobs`
 
-Tracks every CSV upload and its outcome. See [`TT.md`](../TT.md) §10.3 / §23.
+Tracks every CSV upload and its outcome.
 
 | Column | Type | Constraints | Notes |
 |---|---|---|---|
@@ -291,7 +291,7 @@ Tracks every CSV upload and its outcome. See [`TT.md`](../TT.md) §10.3 / §23.
 
 ### 5.9 `weekly_reports`
 
-Generated weekly business summary. See [`TT.md`](../TT.md) §10.8.
+Generated weekly business summary.
 
 | Column | Type | Constraints | Notes |
 |---|---|---|---|
@@ -307,6 +307,54 @@ Generated weekly business summary. See [`TT.md`](../TT.md) §10.8.
 | `created_at` | timestamptz | not null | |
 
 **Indexes:** **unique** `(business_id, week_start)` — one report per business per week (idempotent regeneration).
+
+### 5.10 `refresh_tokens`
+
+Server-side record of issued refresh tokens, so refresh cookies can be rotated and revoked.
+
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id` | uuid | PK | |
+| `user_id` | uuid | FK → `users.id`, not null | cascade delete |
+| `token_hash` | text | **unique**, not null | SHA-256 of the token; the raw token is never stored |
+| `expires_at` | timestamptz | not null | |
+| `revoked_at` | timestamptz | nullable | set on logout or rotation |
+| `replaced_by_token_hash` | text | nullable | rotation audit trail; a revoked token is rejected if replayed |
+| `created_at` | timestamptz | not null | |
+
+**Indexes:** `(user_id)`, `(expires_at)`.
+
+### 5.11 `saved_reports`
+
+A user's named analytics report inside one business.
+
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id` | uuid | PK | |
+| `business_id` | uuid | FK → `businesses.id`, not null | cascade delete |
+| `owner_user_id` | uuid | FK → `users.id`, not null | reports are private to their owner |
+| `name` | varchar(80) | not null | |
+| `current_version` | integer | not null, default 1 | |
+| `created_at` / `updated_at` | timestamptz | not null | |
+
+**Indexes:** `(business_id, owner_user_id, updated_at DESC)` — library listing.
+
+### 5.12 `saved_report_versions`
+
+Immutable plan versions of a saved report. Plans are stored as validated JSON, never SQL or prompts.
+
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `id` | uuid | PK | |
+| `report_id` | uuid | FK → `saved_reports.id`, not null | cascade delete |
+| `version` | integer | not null | |
+| `schema_version` | integer | not null | incompatible versions are returned without an executable plan |
+| `plan` | jsonb | not null | |
+| `plan_source` | enum | not null | `local` or `provider` |
+| `created_by_user_id` | uuid | FK → `users.id`, not null | |
+| `created_at` | timestamptz | not null | |
+
+**Indexes:** **unique** `(report_id, version)`, `(created_by_user_id)`.
 
 ---
 
@@ -522,7 +570,7 @@ For heavier deployments, a future **materialised view** `product_performance_mv`
 
 ## 8. Data Isolation & Authorisation
 
-The core security invariant (see [`TT.md`](../TT.md) §22 and global security rules):
+The core security invariant:
 
 > A request may only touch rows whose `business_id` belongs to a business the authenticated user is a member of.
 
@@ -563,4 +611,4 @@ This prevents IDOR (insecure direct object reference): even with a valid token, 
 - **Roll-back of a bad import:** store `import_job_id` on created rows (already modelled) so a job can be reverted. Deferred to post-MVP.
 - **Multi-currency:** MVP assumes a single currency (NZD). A `currency` column on `businesses`/`orders` would be needed later.
 - **Materialised views** for product performance (see §7).
-- **Soft delete / data export & deletion** to satisfy the privacy "delete imported data" goal in [`TT.md`](../TT.md) §22.
+- **Soft delete / data export & deletion** to satisfy the privacy "delete imported data" goal.
