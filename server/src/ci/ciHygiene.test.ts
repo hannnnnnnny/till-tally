@@ -30,6 +30,12 @@ describe('CI hygiene', () => {
     assert.match(workflow, /INTEGRATION_DATABASE_URL: postgresql:\/\/\S+@localhost:5432\//);
   });
 
+  it('fails the build on critical vulnerabilities in production dependencies', () => {
+    const workflow = readWorkspaceFile('.github/workflows/ci.yml');
+
+    assert.match(workflow, /npm audit --omit=dev --audit-level=critical/);
+  });
+
   it('keeps deterministic analytics evaluations in the merge gate', () => {
     const workflow = readWorkspaceFile('.github/workflows/ci.yml');
     const serverPackageJson = JSON.parse(readWorkspaceFile('server/package.json')) as PackageJson;
