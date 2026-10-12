@@ -28,6 +28,14 @@ import {
   mergeSuggestionsIntoMapping,
   type MappingSuggestion,
 } from './mappingSuggestions';
+import { RowCorrectionEditor, type RowCorrectionControls } from './RowCorrectionEditor';
+import {
+  applyCellCorrections,
+  countCorrectedRows,
+  getFailedRowEditors,
+  setCellCorrection,
+  type CellCorrections,
+} from './rowCorrections';
 import {
   applyImportMappingTemplate,
   findMatchingImportMappingTemplate,
@@ -70,6 +78,7 @@ export function CsvImportPanel() {
   const [templateNotice, setTemplateNotice] = useState<string | null>(null);
   const [suggestionNotice, setSuggestionNotice] = useState<string | null>(null);
   const [skipInvalidRowsConfirmed, setSkipInvalidRowsConfirmed] = useState(false);
+  const [cellCorrections, setCellCorrections] = useState<CellCorrections>({});
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -116,17 +125,46 @@ export function CsvImportPanel() {
     [columnMapping, csvPreview, mode],
   );
 
+  const correctedPreview = useMemo(
+    () => (csvPreview ? applyCellCorrections(csvPreview, cellCorrections) : null),
+    [cellCorrections, csvPreview],
+  );
+
   const preflightValidation = useMemo(() => {
     if (
-      !csvPreview ||
-      csvPreview.detectedType === 'INVENTORY' ||
+      !correctedPreview ||
+      correctedPreview.detectedType === 'INVENTORY' ||
       missingRequiredFields.length > 0
     ) {
       return null;
     }
 
-    return validateMappedCsvRows(csvPreview, mode, columnMapping);
-  }, [columnMapping, csvPreview, missingRequiredFields.length, mode]);
+    return validateMappedCsvRows(correctedPreview, mode, columnMapping);
+  }, [columnMapping, correctedPreview, missingRequiredFields.length, mode]);
+
+  const rowCorrection = useMemo<RowCorrectionControls>(
+    () => ({
+      editors:
+        correctedPreview && preflightValidation
+          ? getFailedRowEditors(correctedPreview, mode, columnMapping, preflightValidation)
+          : [],
+      correctedRowCount: countCorrectedRows(cellCorrections),
+      onSaveRow: (rowIndex, valuesByHeader) => {
+        if (!csvPreview) {
+          return;
+        }
+
+        setCellCorrections((current) =>
+          Object.entries(valuesByHeader).reduce(
+            (next, [header, value]) => setCellCorrection(next, csvPreview, rowIndex, header, value),
+            current,
+          ),
+        );
+      },
+      onUndoAll: () => setCellCorrections({}),
+    }),
+    [cellCorrections, columnMapping, correctedPreview, csvPreview, mode, preflightValidation],
+  );
 
   const suggestedTemplate = useMemo(() => {
     if (!csvPreview) {
@@ -292,6 +330,7 @@ export function CsvImportPanel() {
     setLatestResult(null);
     setSelectedJobDetail(null);
     setSkipInvalidRowsConfirmed(false);
+    setCellCorrections({});
 
     if (!file) {
       setSelectedFile(null);
@@ -367,7 +406,7 @@ export function CsvImportPanel() {
     setSelectedJobDetail(null);
 
     try {
-      const mappedFile = createMappedCsvFile(csvPreview, mode, columnMapping, {
+      const mappedFile = createMappedCsvFile(correctedPreview ?? csvPreview, mode, columnMapping, {
         includedRowIndexes: preflightValidation?.importableRowIndexes,
       });
       const result = await uploadImportCsv(mode, mappedFile, activeBusinessHeaders);
@@ -518,7 +557,7 @@ export function CsvImportPanel() {
             activeTemplateId={activeTemplateId}
             disabled={!activeBusinessHeaders || isUploading}
             columnMapping={columnMapping}
-            csvPreview={csvPreview}
+            csvPreview={correctedPreview}
             isDragging={isDragging}
             isPreviewing={isPreviewing}
             isUploading={isUploading}
@@ -526,6 +565,7 @@ export function CsvImportPanel() {
             missingRequiredFields={missingRequiredFields}
             mode={mode}
             preflightValidation={preflightValidation}
+            rowCorrection={rowCorrection}
             previewError={previewError}
             selectedFile={selectedFile}
             skipInvalidRowsConfirmed={skipInvalidRowsConfirmed}
@@ -574,6 +614,7 @@ type CsvUploadBoxProps = {
   missingRequiredFields: ImportFieldDefinition[];
   mode: ImportMode;
   preflightValidation: PreflightValidation | null;
+  rowCorrection: RowCorrectionControls;
   previewError: string | null;
   selectedFile: File | null;
   skipInvalidRowsConfirmed: boolean;
@@ -607,6 +648,7 @@ function CsvUploadBox({
   missingRequiredFields,
   mode,
   preflightValidation,
+  rowCorrection,
   previewError,
   selectedFile,
   skipInvalidRowsConfirmed,
@@ -706,6 +748,7 @@ function CsvUploadBox({
           missingRequiredFields={missingRequiredFields}
           mode={mode}
           preflightValidation={preflightValidation}
+          rowCorrection={rowCorrection}
           preview={csvPreview}
           skipInvalidRowsConfirmed={skipInvalidRowsConfirmed}
           suggestedTemplate={suggestedTemplate}
@@ -748,6 +791,7 @@ type CsvPreviewSummaryProps = {
   missingRequiredFields: ImportFieldDefinition[];
   mode: ImportMode;
   preflightValidation: PreflightValidation | null;
+  rowCorrection: RowCorrectionControls;
   preview: CsvPreview;
   skipInvalidRowsConfirmed: boolean;
   suggestedTemplate: ImportMappingTemplate | null;
@@ -771,6 +815,7 @@ function CsvPreviewSummary({
   missingRequiredFields,
   mode,
   preflightValidation,
+  rowCorrection,
   preview,
   skipInvalidRowsConfirmed,
   suggestedTemplate,
@@ -861,6 +906,7 @@ function CsvPreviewSummary({
 
       <PreflightValidationPanel
         isSkipConfirmed={skipInvalidRowsConfirmed}
+        rowCorrection={rowCorrection}
         validation={preflightValidation}
         onCancelImport={onCancelImport}
         onSkipInvalidRows={onSkipInvalidRows}
@@ -1218,6 +1264,7 @@ function MappedPreviewTable({ mapping, mode, preview }: MappedPreviewTableProps)
 
 type PreflightValidationPanelProps = {
   isSkipConfirmed: boolean;
+  rowCorrection: RowCorrectionControls;
   validation: PreflightValidation | null;
   onCancelImport: () => void;
   onSkipInvalidRows: () => void;
@@ -1225,6 +1272,7 @@ type PreflightValidationPanelProps = {
 
 function PreflightValidationPanel({
   isSkipConfirmed,
+  rowCorrection,
   validation,
   onCancelImport,
   onSkipInvalidRows,
@@ -1337,6 +1385,8 @@ function PreflightValidationPanel({
           )}
         </div>
       )}
+
+      <RowCorrectionEditor {...rowCorrection} />
 
       {hasFailedRows && (
         <div className="mt-4 flex flex-col gap-2 sm:flex-row">
