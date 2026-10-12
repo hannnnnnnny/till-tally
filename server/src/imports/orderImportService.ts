@@ -231,8 +231,44 @@ async function createImportJobWithOrders(
       await createOrder(tx, businessId, importJob.id, order);
     }
 
+    await advanceProductLastSoldDates(tx, businessId, latestSaleDateByProduct(plan.orders));
+
     return importJob;
   });
+}
+
+export function latestSaleDateByProduct(orders: PlannedOrder[]): Map<string, Date> {
+  const latest = new Map<string, Date>();
+
+  for (const order of orders) {
+    const productId = order.item?.productId;
+    const orderDate = toDate(order.orderDate);
+    const current = productId ? latest.get(productId) : undefined;
+
+    if (productId && (!current || orderDate > current)) {
+      latest.set(productId, orderDate);
+    }
+  }
+
+  return latest;
+}
+
+// Inventory-risk rules read lastSoldAt, so imported sales must move it forward (never back).
+async function advanceProductLastSoldDates(
+  tx: Prisma.TransactionClient,
+  businessId: string,
+  latestSaleDates: Map<string, Date>,
+): Promise<void> {
+  for (const [productId, saleDate] of latestSaleDates) {
+    await tx.product.updateMany({
+      where: {
+        id: productId,
+        businessId,
+        OR: [{ lastSoldAt: null }, { lastSoldAt: { lt: saleDate } }],
+      },
+      data: { lastSoldAt: saleDate },
+    });
+  }
 }
 
 async function createOrder(

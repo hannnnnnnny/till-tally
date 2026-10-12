@@ -109,6 +109,34 @@ describe('CSV import to KPIs (real database)', () => {
     assert.equal(job.body.rowsFailed, 2);
   });
 
+  it('moves product last-sold dates forward when newer orders are imported, never back', async () => {
+    const lastSoldAt = async (sku: string) => {
+      const response = await request(app)
+        .get(`/api/products/performance?${JUNE}`)
+        .set(authed(owner))
+        .expect(200);
+      return response.body.data.find((product: { sku: string }) => product.sku === sku)
+        ?.lastSoldAt as string;
+    };
+    const importRows = (rows: string) =>
+      request(app)
+        .post('/api/import/orders')
+        .set(authed(owner))
+        .attach('file', Buffer.from(`${ORDER_HEADER}\n${rows}\n`), {
+          filename: 'sales.csv',
+          contentType: 'text/csv',
+        })
+        .expect(201);
+
+    assert.equal(await lastSoldAt('BN-008'), '2026-06-20');
+
+    await importRows('3001,2026-07-29,Shopify,7.00,0.00,Auckland,BN-008,1,7.00,7.00,4.50');
+    assert.equal(await lastSoldAt('BN-008'), '2026-07-29');
+
+    await importRows('3002,2026-07-02,Shopify,7.00,0.00,Auckland,BN-008,1,7.00,7.00,4.50');
+    assert.equal(await lastSoldAt('BN-008'), '2026-07-29');
+  });
+
   it('generates a weekly report comparing against the previous week', async () => {
     const response = await request(app)
       .post('/api/reports/weekly/generate')
@@ -139,6 +167,9 @@ describe('CSV import to KPIs (real database)', () => {
     assert.equal(Math.round(total * 100) / 100, 793.7);
   });
 });
+
+const ORDER_HEADER =
+  'order_number,order_date,channel,total_amount,discount_amount,customer_region,sku,quantity,unit_price,total_price,cost_price';
 
 const SAMPLE_ORDER_ROWS = `order_number,order_date,channel,total_amount,discount_amount,customer_region,sku,quantity,unit_price,total_price,cost_price
 1001,2026-06-01,Shopify,89.90,5.00,Auckland,WJ-001,1,89.90,89.90,38.00
