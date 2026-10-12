@@ -1,134 +1,128 @@
 # Completion Audit
 
-Audit of every capability claimed in `README.md` and `docs/`, checked against the code and
-against a running system. Baseline: `main` at `1837bf7` (2026-10-12).
+Feature-by-feature verification of every capability claimed in `README.md` and `docs/`.
 
-Legend: ✅ complete and tested · 🟡 partial (gap stated) · ❌ not implemented ·
-⚠️ documented but absent from code
+- **Baseline audit:** `main` at `1837bf7` (2026-10-12), before any fixes.
+- **Final acceptance:** fresh clone of `main` after PRs #208–#220, following the README
+  step by step.
 
-## 1. Commands actually run
+Legend: ✅ complete and tested · 📝 README/docs corrected to describe actual behaviour
 
-Environment: Windows 11, Node 24.14.1, npm 11.11.0, Docker 29.5.3.
+## 1. Final acceptance run (fresh clone)
 
-| Command | Result | Notes |
+Environment: Windows 11, Node 24.14.1, npm 11.11.0, Docker 29.5.3, PostgreSQL 16 (Compose).
+Ports were overridden (`POSTGRES_PORT=55434 SERVER_PORT=4300 CLIENT_PORT=8083`,
+`-p tilltally-acceptance`) because another checkout's stack was using the defaults.
+
+| Step | Command | Result |
 | --- | --- | --- |
-| `npm install` | ✅ exit 0 | Reports 26 vulnerabilities (7 moderate, 18 high, 1 critical); 12 are in production deps. |
-| `npm run typecheck` | ❌ then ✅ | First run failed (8 errors, e.g. `SalesChannel` missing from `@prisma/client`) because the generated Prisma client was stale. Passed after `npm run prisma:generate -w server`. |
-| `npm run lint` | ✅ exit 0 | |
-| `npm run format:check` | ❌ exit 1 locally | 161 files flagged. Cause: `core.autocrlf=true` checks files out with CRLF, and Prettier expects LF. `prettier --check --end-of-line auto` passes, and CI on Linux is green. |
-| `npm run prisma:validate` | ✅ | Warns that `package.json#prisma` is deprecated in Prisma 7. |
-| `npm test --workspaces --if-present` | ✅ 310 / 310 | client 108, server 193, analytics-contracts 9. No skips. |
-| `npm run test:analytics-evals -w server` | ✅ 4 / 4 | |
-| `npm run test:e2e` | ✅ 10 / 10 | Every `/api/**` call is mocked with `page.route`, so no real backend is exercised. |
-| `npm run build` | ✅ exit 0 | |
-| `docker compose up -d db` | ❌ | Container-name conflict: `container_name: tilltally-db` is hardcoded, and a stack from another worktree already held that name. To keep that stack untouched, the audit used a separate `postgres:16-alpine` container on port 55432. |
-| `prisma migrate deploy` + `npm run db:seed` | ✅ | Seeded 1 business, 6 products, 12 orders, 12 order items, 12 inventory snapshots, 3 import jobs. |
-| Real-API smoke test (built server + seeded DB) | ✅ with findings | See §3. |
-| `docker compose up -d --build` (full stack) | not run | Blocked by the same container-name conflict. Re-verify in Phase 3. |
+| Clone and install | `git clone …` → `npm install` | ✅ exit 0; postinstall generated the Prisma client |
+| Environment | copy `server/.env.example` and `client/.env.example`; `openssl rand -hex 32` ×2 | ✅ |
+| Database | `docker compose up -d db` | ✅ healthy |
+| Migrate + seed | `npm run db:migrate` → `npm run db:seed` | ✅ "10 products, 159 orders" (both steps found missing/broken in this run and fixed in #220) |
+| Type-check | `npm run typecheck` | ✅ exit 0 |
+| Lint | `npm run lint` | ✅ exit 0 |
+| Formatting | `npm run format:check` | ✅ exit 0 (also on Windows) |
+| Prisma schema | `npm run prisma:validate` | ✅ exit 0 |
+| Planner evals | `npm run test:analytics-evals -w server` | ✅ 18/18 |
+| Unit tests | `npm test --workspaces --if-present` | ✅ 362/362 (client 143, server 210, contracts 9)¹ |
+| Integration | `npm run test:integration -w server` | ✅ 13/13 against Postgres |
+| Browser (mocked API) | `npm run test:e2e` | ✅ 44/44 |
+| Browser (full stack) | `npm run test:e2e:fullstack` | ✅ 1/1 against the real API and Postgres |
+| Production build | `npm run build` | ✅ exit 0 |
+| Full Docker stack | `docker compose up -d --build` | ✅ db/server/client healthy; `/api/health/ready` → database ok |
 
-## 2. Feature inventory
+¹ #220 adds one client test, so the next CI run reports client 144 and 363 in total.
 
-| # | Claimed capability | Status | Evidence / gap |
+### Demo walkthrough against the Docker stack
+
+Run with Playwright against `http://localhost:8083`, using the demo account:
+
+1. Sign in → Dashboard revenue **$3,716.50** (last 30 days).
+2. Import a 3-row orders CSV. One row has `total_amount = not-a-number`; it is fixed inline
+   to `18.00`, the row re-validates, and **3 rows are imported**.
+3. Dashboard revenue **$3,959.30**: exactly +$242.80 (179.80 + 45.00 + 18.00).
+4. Inventory risk shows all five categories. The imported jacket sale moved its
+   "last sold" date to yesterday.
+5. Ask TillTally: "Show revenue by channel for the last 7 days" → plan reviewed (6–12 Oct)
+   → bar chart → saved as "Last 7 days by channel" → still listed after a reload.
+
+Screenshots: dashboard (desktop and 375px), import row correction, import result, inventory
+risk, analytics planner.
+
+## 2. Feature status
+
+| # | Claimed capability | Status | Evidence |
 | --- | --- | --- | --- |
-| 1 | Dashboard KPIs (revenue, gross profit, margin, orders, AOV, units, inventory risk) | ✅ | `summaryService` plus tests; real API returned correct KPIs for seeded data. |
-| 2 | Sales trend and channel breakdown | ✅ | `salesTrendService` and `channelBreakdownService`, both tested; real API OK. |
-| 3 | Product performance (ranking, contribution, status labels) | ✅ | `productPerformanceService` plus route tests; real API OK. |
-| 4 | Inventory risk: low-stock, stockout, slow-mover, dead-stock, overstock | 🟡 | All five rules are implemented and unit-tested. In the demo seed only low-stock (2) and overstock (2) appear; stockout, slow-mover and dead-stock are always empty, so three of the five rules can't be demonstrated. |
-| 5a | CSV preview | 🟡 | Client `imports/preview.ts` works but has **no unit tests**. No E2E covers the Imports page. |
-| 5b | Column mapping | 🟡 | `ColumnMappingEditor` and `createMappedCsvFile` exist with no unit tests. |
-| 5c | Header aliases | ✅ / 🟡 | Server aliases in `csvValidation.ts` are tested. Client `mappingSuggestions.ts` is untested. |
-| 5d | Row-level correction (README: "row-level corrections") | ⚠️ | `rowValidation.ts` only **reports** row errors. Invalid cells can't be edited or fixed in the UI before import. The README's "correction guidance" wording is closer to the truth than "row-level corrections". |
-| 5e | Import history | ✅ | `GET /api/import/jobs[/:id]`, tested; real API OK. |
-| 5f | Upload safety (type, size, renamed storage, stripped paths) | ✅ | `uploadMiddleware.ts` enforces MIME and `.csv` checks, a size limit and `randomUUID()` filenames; tested. Real API returned 415 for `evil.exe`. |
-| 5g | Inventory snapshot CSV import | 🟡 | The UI previews inventory files but says inventory import "is not available yet", and there is no server endpoint. The seed inserts a fake `INVENTORY` import job, so import history shows an import the pipeline can't perform. |
-| 6 | Weekly report (top products, warnings, suggested actions) | 🟡 | Service and routes are tested. With seed data, the current- and previous-week reports both show "$0.00 / −100%" because seeded orders end about 13 days before seeding day. |
-| 7 | Analytics planner, deterministic | ✅ | Zod contract in `analytics-contracts`, planner, executor and audit log, all tested. Real API: plan → execute succeeded. |
-| 7b | Analytics planner, optional Ollama | ✅ (mock-tested) | `ollamaPlannerProvider.test.ts` uses a stubbed fetch; no live Ollama was run. Output is re-validated against the same schema. |
-| 7c | Planner evaluations | 🟡 | 4 cases (revenue, margin, product, inventory). This matches the docs but is thin; clarification, unsupported and refinement paths aren't covered. |
-| 8 | Saved analysis (persisted, versioned, auditable) | ✅ | Saved-reports service, router and repository, tested; real API save returned 201. |
-| 9 | Auth (bcrypt, short-lived JWT, httpOnly refresh cookie, rate limits) | ✅ | Auth routes, tokens, refresh-store and rate-limit tests. |
-| 10 | Workspace isolation | 🟡 | Runtime isolation held in every case (see §3). Automated coverage is weak: `businesses/middleware.ts` (`requireBusinessAccess`) and `businesses/routes.ts` have **no tests**, and no test uses a real database. Route tests only check "missing business context → 403" with fakes. |
-| 11 | Responsive UI | 🟡 | 375px E2E covers only landing, the products shell and analytics. Dashboard, Imports, Inventory, Reports, Channels and Workspace have no 375px test. |
-| 12 | Accessibility checks (axe) | 🟡 | `AxeBuilder` runs only in `analytics-workspace.spec.ts`. |
-| 13 | Loading / empty / error states on every data page | 🟡 | All pages use `StatePanel` with loading, empty and error tones on code inspection. This isn't verified by tests, and the Imports page states aren't tested at all. |
-| 14 | Docker Compose (db only, and full stack) | 🟡 | Works only if no other stack uses the hardcoded names `tilltally-db`, `tilltally-server` and `tilltally-client`. Client port 8080 isn't configurable. The full-stack build wasn't verified in this audit. |
-| 15 | CI runs format, Prisma validation, lint, typecheck, evals, unit/integration tests, Playwright and build | ✅ / 🟡 | Every listed step is in `ci.yml`, and the last `main` run passed. There is no Postgres service, though, so the "integration tests" run against fakes and Playwright runs against a mocked API. |
-| 16 | Docs: API.md | 🟡 | Missing all 7 `/api/analytics/saved-reports` endpoints. |
-| 17 | Docs: DATABASE.md | 🟡 | The `RefreshToken` model / `refresh_tokens` table isn't documented. |
-| 18 | Security: secrets from env | ✅ | `config/env.ts` rejects short, default or identical JWT secrets in production; tested. |
-| 19 | Security: SQL | ✅ | All queries go through Prisma. `$executeRawUnsafe` appears only in the migration-drift CLI, with constant SQL and no user input. |
+| 1 | Dashboard KPIs (revenue, gross profit, margin, orders, AOV, units, inventory risk) | ✅ | `summaryService` unit tests; integration asserts exact values from the sample CSVs (793.70 / 486.95 / 61.35%); full-stack E2E asserts the revenue change after an import |
+| 2 | Sales trend and channel breakdown | ✅ | unit and integration tests (channel totals reconcile to revenue) |
+| 3 | Product performance | ✅ | unit tests; integration asserts ranking and gross profit |
+| 4 | Inventory risk (low stock, stockout, slow mover, dead stock, overstock) | ✅ | rule unit tests; the demo seed is tested to hit all five categories on 14 consecutive seeding days; order imports now advance last-sold dates (integration test) |
+| 5a | CSV preview | ✅ | `preview.test.ts` (12); Imports E2E |
+| 5b | Column mapping | ✅ | `preview.test.ts`; E2E checks the uploaded file uses canonical headers |
+| 5c | Header aliases | ✅ | server `csvValidation` tests; client `mappingSuggestions.test.ts` (7) |
+| 5d | Row-level correction | ✅ | **new**: inline fix form (`rowCorrections.ts`, 9 tests); E2E fixes a row and checks the uploaded value; undo asks for confirmation |
+| 5e | Validation and skip invalid rows | ✅ | `rowValidation.test.ts` (7); **fixed**: "Skip invalid rows" previously still uploaded the invalid rows |
+| 5f | Import history | ✅ | integration (row errors stored per job); E2E |
+| 5g | Upload safety (type, size, renamed storage) | ✅ | `uploadMiddleware` tests; integration and real-API checks (415 on `.exe`) |
+| 5h | Inventory snapshot import | 📝 | no endpoint exists; README, DATABASE.md, importer and landing copy now say snapshots can be previewed but not imported |
+| 6 | Weekly report | ✅ | service tests; integration asserts −42.89% week-on-week; the seed now generates a non-empty report for the last complete week |
+| 7 | Analytics planner (deterministic) | ✅ | Zod contract tests; 18-case eval gate; **fixed**: last N days / last month / yesterday were silently treated as the last 30 days; a chart type in the first question was ignored |
+| 7b | Optional Ollama provider | ✅ | mocked-provider tests and shared schema validation (no live model in CI, by design) |
+| 8 | Saved analysis | ✅ | service and router tests; integration (cross-workspace 404s); full-stack E2E saves a report and reloads it |
+| 9 | Authentication | ✅ | auth, token and refresh-store tests; rate-limit tests |
+| 10 | Workspace isolation | ✅ | **new**: `requireBusinessAccess` unit tests (7); integration against Postgres covering 10 scoped reads (header and query string), 5 writes, and 7 record-id routes; a mutation check (membership check disabled) fails 3 tests |
+| 11 | Responsive UI (375px) | ✅ | every data page has 375px tests for data, loading, empty and error states, with no horizontal overflow; **fixed**: Imports overflowed to 589px |
+| 12 | Accessibility checks (axe) | ✅ | axe runs on every page and state, mobile and desktop; **fixed**: role-less `aria-label` loaders, invalid `<dl>` content, 5 contrast failures, non-focusable scroll regions |
+| 13 | Loading / empty / error states | ✅ | `page-states.spec.ts` (29 tests) |
+| 14 | Docker Compose | ✅ | **fixed**: hardcoded container names blocked parallel stacks; `CLIENT_PORT` added; images build and the stack runs healthy |
+| 15 | CI pipeline | ✅ | `ci.yml` runs: critical-advisory audit, format, Prisma validate/generate, lint, typecheck, evals, unit tests, migrate + Postgres integration tests, mocked and full-stack Playwright, build; enforced by `ciHygiene.test.ts` |
+| 16 | API.md | ✅ 📝 | endpoint summary now lists the analytics, saved-report and health routes; 20 dead `TT.md` links removed (correction: the saved-report table already existed; only the summary was missing) |
+| 17 | DATABASE.md | ✅ 📝 | `refresh_tokens`, `saved_reports` and `saved_report_versions` documented; seed and `last_sold_at` behaviour corrected |
+| 18 | Secrets from environment only | ✅ | `config/env.ts` production guard tests; tests and E2E generate random JWT secrets at runtime |
+| 19 | Parameterised SQL | ✅ | Prisma throughout; drift-repair SQL now uses `Prisma.sql` bound parameters; no `*RawUnsafe` calls remain |
 
-### Code-standard scan
+## 3. Code-standard scan (final)
 
 | Rule | Result |
 | --- | --- |
-| No `any` | ✅ 0 occurrences; ESLint `no-explicit-any: error`. |
-| No empty `catch` | ✅ 0. |
-| No `console.log` | ✅ Only in `analyticsEvaluationCli.ts`, where it is the CLI's output. |
-| No `TODO: fix later` / commented-out code | ✅ 0 TODO/FIXME. |
-| Functions under 40 lines | 🟡 101 non-test functions are longer. Worst: `AnalyticsPage` 728, `CsvImportPanel` 429 (11 long functions), `ProductsPage` 256, `AppShell` 238, `DashboardPage` 232. |
+| No `any` | ✅ 0 (ESLint `no-explicit-any: error`) |
+| No empty `catch` | ✅ 0; every catch handles or explains the error |
+| No leftover `console.log` | ✅ only the eval CLI's output |
+| No `TODO: fix later` / commented-out code | ✅ 0 |
+| Functions under 40 lines | ⚠️ 101 non-test functions are still longer (see §4). Code written or changed in this pass was kept under 40 lines. |
 
-## 3. Real-API smoke test (seeded DB, built server)
+## 4. Known limitations
 
-- Login, listing businesses, and all GET endpoints (dashboard ×3, products, inventory ×3,
-  import jobs, weekly report, saved reports) → 200 with plausible data. A request without a token → 401.
-- Product CSV import → 201 with 6 rows imported. Uploading a `.exe` file → 415.
-- Planner: "Show revenue by channel for the last 30 days" → plan → execute → save → 200/200/201.
-- **Isolation:** a second user with their own business got 403 on every business-A endpoint, whether
-  the business ID came from the header or the query string.
-- **Record-ID access:** user B, sending business B's header, got 404 when requesting business A's
-  product ID, import-job ID and saved-report ID (GET, PATCH, duplicate, DELETE). A's report
-  stayed intact.
-- **Data finding:** re-importing `sample-data/products.csv` resets `last_sold_at` to the
-  unshifted June 2026 dates. Seeded `lastSoldAt` values (10-07…10-11) are also later than the
-  newest seeded order (09-29).
+- **Long functions:** large page components remain: `AnalyticsPage` (728 lines),
+  `CsvImportPanel` (460, which grew with row correction), `ProductsPage` (256), `AppShell`
+  (238), `DashboardPage` (232). Splitting them is pure refactoring with regression risk
+  and was deferred; E2E coverage of these pages is now in place to make it safe.
+- **Dependency advisories:** production has 3 high and 0 critical. All three are in the
+  Prisma CLI config chain (`prisma` → `@prisma/config` → `deepmerge-ts`); every 6.x release
+  is affected and the fix needs Prisma 8. The CLI only reads the repository's own config.
+  Tailwind 3 build-tool advisories need Tailwind 4. CI fails on any critical advisory.
+- **Inventory snapshots** are stored by the seed only; no import endpoint, and analytics
+  use `current_stock`.
+- **Planner** is rule-based: it supports one metric and one grouping per question and
+  no free-text filters. The optional Ollama provider is not exercised live in CI.
+- **Docker:** the API container does not run migrations on start; run `npm run db:migrate`
+  (or the deployment guide's step) for a fresh volume.
+- **Refresh tokens:** replaying a revoked token is rejected, but it does not revoke the rest
+  of the rotation chain.
 
-## 4. Prioritised gaps
+## 5. Baseline findings and resolution
 
-### P0: critical-path tests, false claims, demo blockers
-
-1. **DB-backed integration tests and workspace isolation.** Add a Postgres service to CI and an
-   integration suite against a real database. A user in workspace A must not be able to read
-   workspace B through any business-scoped endpoint or any record ID. Also cover the import
-   flow end to end and KPI/margin values against known data. Add unit tests for
-   `requireBusinessAccess` and `businesses/routes.ts`.
-2. **Row-level correction.** Either implement inline correction of invalid cells in the import
-   preview (re-validate, then upload the corrected mapped CSV), or reword the README.
-   *Recommendation: implement it. It is small on the client side and strong in a demo.*
-3. **Client CSV import tests.** Add unit tests for `preview.ts`, `mappingSuggestions.ts`,
-   `rowValidation.ts` and `createMappedCsvFile`, plus an Imports-page E2E.
-4. **Demo seed realism.** Shift order dates so the newest order is yesterday. Derive
-   `lastSoldAt` from orders. Add sample rows so stockout, slow-mover and dead-stock each appear,
-   and make the current and previous weekly reports non-zero.
-5. **Production dependency vulnerabilities.** Upgrade the affected packages (12 in total: 1
-   critical `proxy-addr`; high in `multer`, `prisma`, `react-router`, and others). All have
-   non-major fixes.
-
-### P1: verification depth and developer experience
-
-6. Add a real full-stack Playwright spec (no mocks) for import CSV → KPIs → planner question →
-   save report, and run it in CI against the Postgres service.
-7. Extend axe and 375px checks to Dashboard, Imports, Inventory, Weekly report, Channels and
-   Workspace, including their empty and error states.
-8. `docker-compose.yml`: remove the hardcoded `container_name` values (or make them
-   configurable) and parameterise the client port.
-9. Add `.gitattributes` (`* text=auto eol=lf`) so `format:check` passes on Windows checkouts.
-10. Make sure the Prisma client is generated after install (a `postinstall` script, or document
-    the step), then confirm on a fresh clone.
-11. Inventory snapshot import: implement `POST /api/import/inventory`, or document it as
-    seed-only and stop seeding a fake `INVENTORY` import job.
-12. Docs: add the saved-reports endpoints to `API.md` and `refresh_tokens` to `DATABASE.md`.
-
-### P2: quality
-
-13. Refactor the largest components (`AnalyticsPage`, `CsvImportPanel`, `ProductsPage`,
-    `DashboardPage`, `AppShell`) toward functions under 40 lines; refactor other files as they are touched.
-14. Expand planner evals from 4 to about 15 cases (clarification, unsupported metric, refinement,
-    filters, date phrases).
-15. Replace `$executeRawUnsafe` in the drift-repair CLI with tagged `$executeRaw`.
-
-### Accepted as-is
-
-- The live Ollama provider is not exercised in CI by design (optional and documented). It is
-  covered by mocked tests and shared schema validation.
-- `console.warn` on CSV cleanup failure is intentional operational logging.
+| Priority | Gap at baseline | Resolution |
+| --- | --- | --- |
+| P0 | No database-backed tests; isolation middleware untested | #209 |
+| P0 | README claimed row-level correction | #211 implemented it |
+| P0 | Client CSV import logic untested | #210 (+3 bugs fixed) |
+| P0 | Demo seed ended about 2 weeks before seeding; 2 of 5 risk categories | #212 |
+| P0 | 12 production advisories (1 critical) | #213 → 3 high, 0 critical; CI gate |
+| P1 | Every browser test mocked the API | #214 full-stack journey |
+| P1 | axe / 375px only on 3 pages | #215 (+ accessibility fixes) |
+| P1 | Compose container names, CRLF formatting, docs drift, inventory import claims | #216 (+ last-sold import bug) |
+| P2 | 4 eval cases | #217 → 18 (+ 2 planner bugs) |
+| P2 | `$executeRawUnsafe` with interpolated SQL | #218 |
+| Acceptance | Fresh clone: Prisma client not generated; no migrate step; drift CLI ignored `.env`; "1 products" | #219, #220 |
