@@ -212,7 +212,7 @@ function InventoryRiskSection({
           <p className="mt-1 text-sm text-slate-600">{group.description}</p>
         </div>
         <span className="inline-flex w-fit rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-          {items.length} products
+          {items.length} {items.length === 1 ? 'product' : 'products'}
         </span>
       </div>
 

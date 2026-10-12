@@ -41,6 +41,22 @@ describe('dashboard decision model', () => {
     );
   });
 
+  it('uses singular and plural wording for stockout risk counts', () => {
+    const detailFor = (stockoutRisk: number) => {
+      const inventory = createInventory();
+      inventory.summary.stockoutRisk = stockoutRisk;
+      return buildDashboardDecisionSignals({
+        channels: createChannels(),
+        inventory,
+        products: createProducts(),
+        summary: createSummary(),
+      })[0]?.detail;
+    };
+
+    assert.equal(detailFor(1), '1 product is at immediate stockout risk.');
+    assert.equal(detailFor(3), '3 products are at immediate stockout risk.');
+  });
+
   it('does not promote a product or channel when the selected period has no revenue', () => {
     const products = createProducts();
     products.data[0] = { ...products.data[0], revenue: 0, unitsSold: 0 };

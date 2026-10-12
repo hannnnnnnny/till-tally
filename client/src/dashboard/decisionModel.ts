@@ -93,7 +93,7 @@ export function buildDashboardDecisionSignals({
     {
       detail:
         lowStockCount > 0
-          ? `${inventory.summary.stockoutRisk} products are at immediate stockout risk.`
+          ? `${formatProductCount(inventory.summary.stockoutRisk)} at immediate stockout risk.`
           : 'No products are currently below the low-stock threshold.',
       label: 'Restock attention',
       route: '/inventory',
@@ -187,4 +187,8 @@ function formatDateOnly(value: Date): string {
   const month = String(value.getMonth() + 1).padStart(2, '0');
   const day = String(value.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+function formatProductCount(count: number): string {
+  return count === 1 ? '1 product is' : `${count} products are`;
 }
