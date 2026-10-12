@@ -9,6 +9,7 @@
     "start": "node dist/app.js",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test \"src/**/*.test.ts\"",
+    "test:integration": "tsx --test --test-concurrency=1 \"src/integration/**/*.itest.ts\"",
     "test:analytics-evals": "tsx src/analytics/analyticsEvaluationCli.ts",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",

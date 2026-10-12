@@ -14,11 +14,20 @@ describe('CI hygiene', () => {
       'npm run typecheck',
       'npm run test:analytics-evals -w server',
       'npm test --workspaces --if-present',
+      'npm run test:integration -w server',
       'npm run test:e2e',
       'npm run build',
     ]) {
       assert.match(workflow, new RegExp(escapeRegExp(command)));
     }
+  });
+
+  it('runs database integration tests against a disposable Postgres service', () => {
+    const workflow = readWorkspaceFile('.github/workflows/ci.yml');
+
+    assert.match(workflow, /image: postgres:16-alpine/);
+    assert.match(workflow, /npm run prisma:deploy -w server/);
+    assert.match(workflow, /INTEGRATION_DATABASE_URL: postgresql:\/\/\S+@localhost:5432\//);
   });
 
   it('keeps deterministic analytics evaluations in the merge gate', () => {
@@ -42,6 +51,7 @@ describe('CI hygiene', () => {
     assert.match(serverPackageJson.scripts.build, /npm run clean/);
     assert.deepEqual(buildConfig.exclude, [
       'src/**/*.test.ts',
+      'src/integration/**',
       'src/analytics/analyticsEvaluation.ts',
       'src/analytics/analyticsEvaluationCli.ts',
     ]);
@@ -127,7 +137,8 @@ describe('CI hygiene', () => {
     const actionReferences = workflow.match(/^\s*uses:\s*actions\/[^@\s]+@([^\s#]+)/gm) ?? [];
 
     assert.equal(actionReferences.length, 2);
-    assert.match(workflow, /timeout-minutes:\s*15/);
+    const timeoutMinutes = Number(workflow.match(/timeout-minutes:\s*(\d+)/)?.[1]);
+    assert.ok(timeoutMinutes > 0 && timeoutMinutes <= 30, `unexpected timeout ${timeoutMinutes}`);
 
     for (const reference of actionReferences) {
       assert.match(reference, /@[0-9a-f]{40}$/);

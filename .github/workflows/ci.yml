@@ -18,7 +18,21 @@ jobs:
   build:
     name: install / format / lint / typecheck / test / build
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+    services:
+      db:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: tilltally
+          POSTGRES_PASSWORD: tilltally
+          POSTGRES_DB: tilltally
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U tilltally -d tilltally"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -62,6 +76,17 @@ jobs:
           export JWT_ACCESS_SECRET="$(openssl rand -hex 32)"
           export JWT_REFRESH_SECRET="$(openssl rand -hex 32)"
           npm test --workspaces --if-present
+
+      - name: Migrate integration database
+        run: npm run prisma:deploy -w server
+        env:
+          DATABASE_URL: postgresql://tilltally:tilltally@localhost:5432/tilltally?schema=public
+
+      - name: Integration test
+        # Exercises the real API against Postgres: imports, KPIs, and workspace isolation.
+        run: npm run test:integration -w server
+        env:
+          INTEGRATION_DATABASE_URL: postgresql://tilltally:tilltally@localhost:5432/tilltally?schema=public
 
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
