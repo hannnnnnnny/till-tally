@@ -31,24 +31,31 @@ describe('migration drift helpers', () => {
     );
   });
 
-  it('builds a scoped repair SQL statement for the known migration rename only', () => {
-    const sql = getKnownMigrationDriftRepairSql();
+  it('builds a parameterised repair statement for the known migration rename only', () => {
+    const statement = getKnownMigrationDriftRepairSql();
 
-    assert.match(sql, /UPDATE "_prisma_migrations"/);
-    assert.match(sql, /20260629223930_add_business_models/);
-    assert.match(sql, /20260629120000_add_business_models/);
-    assert.match(sql, /WHERE migration_name =/);
-    assert.match(sql, /NOT EXISTS/);
+    assert.match(statement.sql, /UPDATE "_prisma_migrations"/);
+    assert.match(statement.sql, /WHERE migration_name = \?/);
+    assert.match(statement.sql, /NOT EXISTS/);
+    assert.doesNotMatch(statement.sql, /add_business_models/);
+    assert.deepEqual(statement.values, [
+      '20260629120000_add_business_models',
+      '20260629223930_add_business_models',
+      '20260629120000_add_business_models',
+    ]);
   });
 
-  it('builds a scoped cleanup SQL statement for a failed duplicate current migration row', () => {
-    const sql = getKnownMigrationDriftCleanupSql();
+  it('builds a parameterised cleanup statement for a failed duplicate current migration row', () => {
+    const statement = getKnownMigrationDriftCleanupSql();
 
-    assert.match(sql, /DELETE FROM "_prisma_migrations"/);
-    assert.match(sql, /20260629120000_add_business_models/);
-    assert.match(sql, /20260629223930_add_business_models/);
-    assert.match(sql, /finished_at IS NULL/);
-    assert.match(sql, /EXISTS/);
+    assert.match(statement.sql, /DELETE FROM "_prisma_migrations"/);
+    assert.match(statement.sql, /finished_at IS NULL/);
+    assert.match(statement.sql, /EXISTS/);
+    assert.doesNotMatch(statement.sql, /add_business_models/);
+    assert.deepEqual(statement.values, [
+      '20260629120000_add_business_models',
+      '20260629223930_add_business_models',
+    ]);
   });
 
   it('recognizes Prisma missing-table errors for weekly reports', () => {

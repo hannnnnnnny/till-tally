@@ -42,7 +42,7 @@ async function main(): Promise<void> {
   let appliedMigrationNames = appliedMigrations.map((migration) => migration.migration_name);
 
   if (hasFinishedLegacyMigration && hasFailedCurrentMigration) {
-    const deletedRows = await prisma.$executeRawUnsafe(getKnownMigrationDriftCleanupSql());
+    const deletedRows = await prisma.$executeRaw(getKnownMigrationDriftCleanupSql());
 
     if (deletedRows > 0) {
       console.info(
@@ -75,7 +75,7 @@ async function main(): Promise<void> {
     );
   }
 
-  const updatedRows = await prisma.$executeRawUnsafe(getKnownMigrationDriftRepairSql());
+  const updatedRows = await prisma.$executeRaw(getKnownMigrationDriftRepairSql());
 
   if (updatedRows > 0) {
     console.info(

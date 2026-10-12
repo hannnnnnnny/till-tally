@@ -1,3 +1,5 @@
+import { Prisma } from '@prisma/client';
+
 export const legacyBusinessMigrationName = '20260629223930_add_business_models';
 export const currentBusinessMigrationName = '20260629120000_add_business_models';
 
@@ -14,36 +16,34 @@ export function isKnownBusinessMigrationDrift(appliedMigrationNames: string[]): 
   return applied.has(legacyBusinessMigrationName) && !applied.has(currentBusinessMigrationName);
 }
 
-export function getKnownMigrationDriftRepairSql(): string {
-  return `
+export function getKnownMigrationDriftRepairSql(): Prisma.Sql {
+  return Prisma.sql`
 UPDATE "_prisma_migrations"
-SET migration_name = '${currentBusinessMigrationName}'
-WHERE migration_name = '${legacyBusinessMigrationName}'
+SET migration_name = ${currentBusinessMigrationName}
+WHERE migration_name = ${legacyBusinessMigrationName}
   AND finished_at IS NOT NULL
   AND rolled_back_at IS NULL
   AND NOT EXISTS (
     SELECT 1
     FROM "_prisma_migrations"
-    WHERE migration_name = '${currentBusinessMigrationName}'
-  );
-`.trim();
+    WHERE migration_name = ${currentBusinessMigrationName}
+  )`;
 }
 
-export function getKnownMigrationDriftCleanupSql(): string {
-  return `
+export function getKnownMigrationDriftCleanupSql(): Prisma.Sql {
+  return Prisma.sql`
 DELETE FROM "_prisma_migrations"
-WHERE migration_name = '${currentBusinessMigrationName}'
+WHERE migration_name = ${currentBusinessMigrationName}
   AND finished_at IS NULL
   AND rolled_back_at IS NULL
   AND logs IS NOT NULL
   AND EXISTS (
     SELECT 1
     FROM "_prisma_migrations"
-    WHERE migration_name = '${legacyBusinessMigrationName}'
+    WHERE migration_name = ${legacyBusinessMigrationName}
       AND finished_at IS NOT NULL
       AND rolled_back_at IS NULL
-  );
-`.trim();
+  )`;
 }
 
 export function isPrismaMissingTableError(error: unknown, tableName?: string): boolean {
