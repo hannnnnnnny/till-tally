@@ -318,9 +318,9 @@ function WeeklyReportCard({
 function WeeklyMetricCard({ metric }: { metric: WeeklyReportMetricCard }) {
   return (
     <div className={`rounded-md border p-4 ${getWeeklyReportToneClass(metric.tone)}`}>
-      <dt className="text-xs font-semibold uppercase opacity-80">{metric.label}</dt>
+      <dt className="text-xs font-semibold uppercase">{metric.label}</dt>
       <dd className="mt-2 text-2xl font-bold text-slate-950">{metric.value}</dd>
-      <p className="mt-2 text-xs font-medium opacity-80">{metric.helper}</p>
+      <dd className="mt-2 text-xs font-medium">{metric.helper}</dd>
     </div>
   );
 }
@@ -390,7 +390,7 @@ function WeeklyInsightSection({
               className={`rounded-md border px-3 py-3 ${getWeeklyReportToneClass(item.tone)}`}
             >
               <h4 className="text-sm font-bold text-slate-950">{item.title}</h4>
-              <p className="mt-1 text-sm leading-5 opacity-80">{item.description}</p>
+              <p className="mt-1 text-sm leading-5">{item.description}</p>
             </article>
           ))}
         </div>
@@ -403,7 +403,7 @@ function WeeklyInsightSection({
 
 function WeeklyReportSkeleton() {
   return (
-    <div className="mt-6 space-y-6" aria-label="Loading weekly report">
+    <div className="mt-6 space-y-6" role="status" aria-label="Loading weekly report">
       <div className="rounded-md border border-slate-200 bg-slate-50 p-5">
         <div className="h-4 w-36 animate-pulse rounded bg-slate-200" />
         <div className="mt-3 h-6 w-56 animate-pulse rounded bg-slate-200" />

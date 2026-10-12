@@ -117,7 +117,7 @@ export function MetricSkeletonGrid({
   gridClassName,
 }: MetricSkeletonGridProps) {
   return (
-    <div className={gridClassName} aria-label="Loading metrics">
+    <div className={gridClassName} role="status" aria-label="Loading metrics">
       {createSkeletonItems(count).map((index) => (
         <div
           key={index}
