@@ -305,7 +305,7 @@ function ChartViewButton({
       aria-pressed={active}
       onClick={onClick}
       className={`inline-flex items-center justify-center gap-1.5 rounded text-xs font-semibold outline-none transition focus-visible:ring-2 focus-visible:ring-blue-600 ${
-        active ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-900'
+        active ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-600 hover:text-slate-900'
       }`}
     >
       <Icon aria-hidden="true" className="h-3.5 w-3.5" />

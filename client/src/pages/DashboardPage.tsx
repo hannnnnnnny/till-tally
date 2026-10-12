@@ -567,6 +567,7 @@ function DashboardChartSkeleton() {
   return (
     <div
       className="mt-5 h-72 animate-pulse rounded-md border border-slate-200 bg-slate-50"
+      role="status"
       aria-label="Loading dashboard chart"
     />
   );
@@ -574,7 +575,7 @@ function DashboardChartSkeleton() {
 
 function DecisionSignalSkeleton() {
   return (
-    <div className="mt-4 space-y-3" aria-label="Loading decision signals">
+    <div className="mt-4 space-y-3" role="status" aria-label="Loading decision signals">
       {[0, 1, 2].map((item) => (
         <div key={item} className="h-24 animate-pulse rounded-md bg-slate-100" />
       ))}

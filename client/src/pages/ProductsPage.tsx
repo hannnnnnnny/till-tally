@@ -443,7 +443,7 @@ function ProductMobileMetric({ label, value }: { label: string; value: string })
 
 function ProductMobileSkeleton() {
   return (
-    <div className="divide-y divide-slate-100" aria-label="Loading products">
+    <div className="divide-y divide-slate-100" role="status" aria-label="Loading products">
       {Array.from({ length: 4 }, (_, index) => (
         <div key={index} className="p-4">
           <div className="h-5 w-2/3 animate-pulse rounded bg-slate-200" />

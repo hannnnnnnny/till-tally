@@ -5,7 +5,8 @@ export const BUSINESS_ID = 'business-1';
 
 export type ApiHandler = (route: Route, path: string, method: string) => Promise<boolean>;
 
-// Signed-in shell plus page-specific handlers; anything unhandled is a loud 404.
+// Signed-in shell plus page-specific handlers (which run first, so they can override the
+// default business list); anything unhandled is a loud 404.
 export async function mockSignedInApi(page: Page, handler: ApiHandler): Promise<void> {
   await page.route('**/api/**', async (route) => {
     const url = new URL(route.request().url());
@@ -23,14 +24,14 @@ export async function mockSignedInApi(page: Page, handler: ApiHandler): Promise<
       return;
     }
 
+    if (await handler(route, url.pathname, method)) {
+      return;
+    }
+
     if (url.pathname === '/api/businesses') {
       await route.fulfill({
         json: { data: [{ id: BUSINESS_ID, name: 'Auckland Demo Retail', role: 'OWNER' }] },
       });
-      return;
-    }
-
-    if (await handler(route, url.pathname, method)) {
       return;
     }
 
