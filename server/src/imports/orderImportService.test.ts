@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { ImportStatus, SalesChannel } from '@prisma/client';
-import { buildOrderImportPlan } from './orderImportService';
+import { buildOrderImportPlan, latestSaleDateByProduct } from './orderImportService';
 import { type CsvValidationResult, type OrderImportRow } from './csvValidation';
 
 describe('order import service', () => {
@@ -129,3 +129,46 @@ function createValidationResult(validRows: OrderImportRow[]): CsvValidationResul
     warnings: [],
   };
 }
+
+describe('latestSaleDateByProduct', () => {
+  function orderRow(orderNumber: string, orderDate: string, sku: string | null) {
+    return {
+      sourceRow: 2,
+      orderNumber,
+      orderDate,
+      channel: SalesChannel.SHOPIFY,
+      totalAmount: 10,
+      discountAmount: 0,
+      customerRegion: null,
+      item: sku ? { sku, quantity: 1, unitPrice: 10, totalPrice: 10, costPrice: 4 } : null,
+    };
+  }
+
+  it('keeps the latest order date per matched product and ignores unmatched rows', () => {
+    const plan = buildOrderImportPlan(
+      createValidationResult([
+        orderRow('1', '2026-06-03', 'A'),
+        orderRow('2', '2026-06-09', 'A'),
+        orderRow('3', '2026-06-05', 'B'),
+        orderRow('4', '2026-06-30', 'UNKNOWN'),
+        orderRow('5', '2026-06-30', null),
+      ]),
+      new Set<string>(),
+      new Map([
+        ['A', 'product-a'],
+        ['B', 'product-b'],
+      ]),
+    );
+
+    assert.deepEqual(
+      [...latestSaleDateByProduct(plan.orders)].map(([id, date]) => [
+        id,
+        date.toISOString().slice(0, 10),
+      ]),
+      [
+        ['product-a', '2026-06-09'],
+        ['product-b', '2026-06-05'],
+      ],
+    );
+  });
+});
