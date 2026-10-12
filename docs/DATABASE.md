@@ -193,7 +193,7 @@ Junction table for future multi-user workspaces. MVP inserts one `OWNER` row per
 - `(business_id, category)` — category filters/aggregations.
 - `(business_id, last_sold_at)` — slow-mover / dead-stock scans.
 
-> `last_sold_at` and `current_stock` are maintained by the import/analytics service when orders or inventory snapshots are imported, so dashboard queries avoid recomputing from scratch.
+> `current_stock` comes from the products CSV. `last_sold_at` is set by product imports and moved forward by order imports, so dashboard queries avoid recomputing from scratch. `inventory_snapshots` are written by the demo seed only: there is no snapshot import endpoint, and analytics read `current_stock` rather than snapshot history.
 
 ---
 

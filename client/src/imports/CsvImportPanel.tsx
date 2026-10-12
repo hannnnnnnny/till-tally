@@ -380,7 +380,7 @@ export function CsvImportPanel() {
 
     if (csvPreview.detectedType === 'INVENTORY') {
       setUploadError(
-        'Inventory CSV preview is supported, but inventory import is not available yet',
+        'Inventory snapshot files can be previewed but not imported. Update stock levels with a products CSV that includes current_stock.',
       );
       return;
     }
@@ -1728,7 +1728,7 @@ function getPreviewNotice(
 
   if (detectedType === 'INVENTORY') {
     return {
-      message: 'Inventory CSV detected. Inventory uploads are not available yet.',
+      message: 'Inventory CSV detected. Snapshot files can be previewed but not imported.',
       tone: 'warning',
     };
   }
