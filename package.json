@@ -21,6 +21,7 @@
     "typecheck": "npm run build -w @till-tally/analytics-contracts && npm run typecheck -w @till-tally/analytics-contracts && npm run typecheck -w client && npm run typecheck -w server && npm run typecheck:e2e",
     "typecheck:e2e": "tsc --noEmit -p tsconfig.e2e.json",
     "test:e2e": "playwright test",
+    "test:e2e:fullstack": "playwright test -c playwright.fullstack.config.ts",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"**/*.{ts,tsx,js,mjs,cjs,json,css,md}\"",
